@@ -1834,6 +1834,8 @@ Type Doors
 	Field timer%, timerstate#
 	Field KeyCard%
 	Field room.Rooms
+
+  Field DoorBust%
 	
 	Field DisableWaypoint%
 	
@@ -2036,6 +2038,16 @@ Function CreateButton(x#,y#,z#, pitch#,yaw#,roll#=0)
 	EntityPickMode(obj, 2)	
 	
 	Return obj
+End Function
+
+
+Function UpdateDoorBusting()
+
+For d.doors = Each Doors
+    If DoorBust = 1 Then
+    Animate2(d\obj, SetAnimTime(d\obj), 1, 10, 5.0, False)
+    Animate2(d\obj2,SetAnimTime(d\obj2), 1, 10, 5.0, False)
+    EndIf
 End Function
 
 Function UpdateDoors()
