@@ -8131,23 +8131,7 @@ Function LoadEntities()
 	
 	DrawLoading(20)
 	
-	For i = 0 To 6
-		DecalTextures(i) = LoadTexture_Strict("GFX\decal" + (i + 1) + ".png", 1 + 2)
-	Next
-	DecalTextures(7) = LoadTexture_Strict("GFX\items\INVpaperstrips.jpg", 1 + 2)
-	For i = 8 To 12
-		DecalTextures(i) = LoadTexture_Strict("GFX\decalpd"+(i-7)+".jpg", 1 + 2)	
-	Next
-	For i = 13 To 14
-		DecalTextures(i) = LoadTexture_Strict("GFX\bullethole"+(i-12)+".jpg", 1 + 2)	
-	Next	
-	For i = 15 To 16
-		DecalTextures(i) = LoadTexture_Strict("GFX\blooddrop"+(i-14)+".png", 1 + 2)	
-	Next
-	DecalTextures(17) = LoadTexture_Strict("GFX\decal8.png", 1 + 2)	
-	DecalTextures(18) = LoadTexture_Strict("GFX\decalpd6.dc", 1 + 2)	
-	DecalTextures(19) = LoadTexture_Strict("GFX\decal19.png", 1 + 2)
-	DecalTextures(20) = LoadTexture_Strict("GFX\decal427.png", 1 + 2)
+	LoadDecals()
 	
 	DrawLoading(25)
 	
@@ -10765,94 +10749,7 @@ End Function
 
 ;--------------------------------------- decals -------------------------------------------------------
 
-Type Decals
-	Field obj%
-	Field SizeChange#, Size#, MaxSize#
-	Field AlphaChange#, Alpha#
-	Field blendmode%
-	Field fx%
-	Field ID%
-	Field Timer#
-	
-	Field lifetime#
-	
-	Field x#, y#, z#
-	Field pitch#, yaw#, roll#
-End Type
-
-Function CreateDecal.Decals(id%, x#, y#, z#, pitch#, yaw#, roll#)
-	Local d.Decals = New Decals
-	
-	d\x = x
-	d\y = y
-	d\z = z
-	d\pitch = pitch
-	d\yaw = yaw
-	d\roll = roll
-	
-	d\MaxSize = 1.0
-	
-	d\Alpha = 1.0
-	d\Size = 1.0
-	d\obj = CreateSprite()
-	d\blendmode = 1
-	
-	EntityTexture(d\obj, DecalTextures(id))
-	EntityFX(d\obj, 0)
-	SpriteViewMode(d\obj, 2)
-	PositionEntity(d\obj, x, y, z)
-	RotateEntity(d\obj, pitch, yaw, roll)
-	
-	d\ID = id
-	
-	If DecalTextures(id) = 0 Or d\obj = 0 Then Return Null
-	
-	Return d
-End Function
-
-Function UpdateDecals()
-	Local d.Decals
-	For d.Decals = Each Decals
-		If d\SizeChange <> 0 Then
-			d\Size=d\Size + d\SizeChange * FPSfactor
-			ScaleSprite(d\obj, d\Size, d\Size)
-			
-			Select d\ID
-				Case 0
-					If d\Timer <= 0 Then
-						Local angle# = Rand(360)
-						Local temp# = Rnd(d\Size)
-						Local d2.Decals = CreateDecal(1, EntityX(d\obj) + Cos(angle) * temp, EntityY(d\obj) - 0.0005, EntityZ(d\obj) + Sin(angle) * temp, EntityPitch(d\obj), Rnd(360), EntityRoll(d\obj))
-						d2\Size = Rnd(0.1, 0.5) : ScaleSprite(d2\obj, d2\Size, d2\Size)
-						PlaySound2(DecaySFX(Rand(1, 3)), Camera, d2\obj, 10.0, Rnd(0.1, 0.5))
-						;d\Timer = d\Timer + Rand(50,150)
-						d\Timer = Rand(50, 100)
-					Else
-						d\Timer= d\Timer-FPSfactor
-					End If
-				;Case 6
-				;	EntityBlend d\obj, 2
-			End Select
-			
-			If d\Size >= d\MaxSize Then d\SizeChange = 0 : d\Size = d\MaxSize
-		End If
-		
-		If d\AlphaChange <> 0 Then
-			d\Alpha = Min(d\Alpha + FPSfactor * d\AlphaChange, 1.0)
-			EntityAlpha(d\obj, d\Alpha)
-		End If
-		
-		If d\lifetime > 0 Then
-			d\lifetime=Max(d\lifetime-FPSfactor,5)
-		EndIf
-		
-		If d\Size <= 0 Or d\Alpha <= 0 Or d\lifetime=5.0  Then
-			FreeEntity(d\obj)
-			Delete d
-		End If
-	Next
-End Function
-
+Include "Decals.bb"
 
 ;--------------------------------------- INI-functions -------------------------------------------------------
 
