@@ -1,4 +1,4 @@
-Block]
+;[Block]
 
 Const MAX_DECALS% = 21
 
@@ -30,6 +30,7 @@ Const DECAL_BLOOD_6% = 17
 Const DECAL_PD_6% = 18
 Const DECAL_409% = 19
 Const DECAL_427% = 20
+;[End Block]
 
 Type Decals
 	Field obj%
