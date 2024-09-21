@@ -72,7 +72,7 @@ Function CreateDecal.Decals(id%, x#, y#, z#, pitch#, yaw#, roll#)
 	
 	d\ID = id
 	
-	If DecalTextures[id] = 0 Lor d\obj = 0 Then Return Null
+	If DecalTextures[id] = 0 Or d\obj = 0 Then Return Null
 	
 	Return d
 End Function
