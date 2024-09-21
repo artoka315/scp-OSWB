@@ -1,4 +1,4 @@
-;SCP - Containment Breach
+;OneShot - Warehouse Breach
 
 ;    The game is based on the works of the SCP Foundation community (http://www.scp-wiki.net/).
 
@@ -39,14 +39,14 @@ Wend
 ErrorFile = ErrorFile+Str(ErrorFileInd)+".txt"
 
 Global UpdaterFont%
-Global Font1%, Font2%, Font3%, Font4%, Font5%
+Global Font1%, Font2%, Font3%, Font4%, Font5%, Font6%
 Global ConsoleFont%
 
 Global VersionNumber$ = "1.3.11"
 Global CompatibleNumber$ = "1.3.11" ;Only change this if the version given isn't working with the current build version - ENDSHN
 
 Global MenuWhite%, MenuBlack%
-Global ButtonSFX%
+Global ButtonSFX% = LoadSound_Strict("SFX\Interact\Button.ogg")
 
 Global EnableSFXRelease% = GetINIInt(OptionFile, "audio", "sfx release")
 Global EnableSFXRelease_Prev% = EnableSFXRelease%
@@ -60,7 +60,6 @@ Dim ArrowIMG(4)
 Global LauncherWidth%= Min(GetINIInt(OptionFile, "launcher", "launcher width"), 1024)
 Global LauncherHeight% = Min(GetINIInt(OptionFile, "launcher", "launcher height"), 768)
 Global LauncherEnabled% = GetINIInt(OptionFile, "launcher", "launcher enabled")
-Global LauncherIMG%
 
 Global GraphicWidth% = GetINIInt(OptionFile, "options", "width")
 Global GraphicHeight% = GetINIInt(OptionFile, "options", "height")
@@ -208,7 +207,7 @@ Global GameSaved%
 
 Global CanSave% = True
 
-AppTitle "SCP - Containment Breach v"+VersionNumber
+AppTitle "OneShot - Warehouse Breach"
 
 PlayStartupVideos()
 
@@ -240,6 +239,8 @@ ConsoleFont% = AALoadFont("Blitz", Int(20 * (GraphicHeight / 1024.0)), 0,0,0,1)
 AASetFont Font2
 
 Global BlinkMeterIMG% = LoadImage_Strict("GFX\blinkmeter.jpg")
+
+Global LoadMeterIMG% = LoadImage_Strict("GFX\newmeter.jpg")
 
 DrawLoading(0, True)
 
@@ -340,6 +341,8 @@ Global MsgTimer#, Msg$, DeathMSG$
 
 Global AccessCode%, KeypadInput$, KeypadTimer#, KeypadMSG$
 
+Const HARPCODE% = 7816
+
 Global DrawHandIcon%
 Dim DrawArrowIcon%(4)
 
@@ -355,6 +358,8 @@ Dim RadioState4%(9)
 Dim RadioCHN%(8)
 
 Dim OldAiPics%(5)
+
+Global ButtonTexture, ButtonTextureActive, ButtonTextureLocked
 
 Global PlayTime%
 Global ConsoleFlush%
@@ -946,9 +951,11 @@ Function UpdateConsole()
 					For n.NPCs = Each NPCs
 						If n\NPCtype = NPCtype096 Then
 							n\State = 0
-							StopStream_Strict(n\SoundChn) : n\SoundChn=0
+							If n\SoundChn<>0
+								StopStream_Strict(n\SoundChn) : n\SoundChn=0 : n\SoundChn_isStream = False
+							EndIf
 							If n\SoundChn2<>0
-								StopStream_Strict(n\SoundChn2) : n\SoundChn2=0
+								StopStream_Strict(n\SoundChn2) : n\SoundChn2=0 : n\SoundChn2_isStream = False
 							EndIf
 							Exit
 						EndIf
@@ -1124,13 +1131,7 @@ Function UpdateConsole()
 					;[End Block]
 				Case "stopsound", "stfu"
 					;[Block]
-					For snd.Sound = Each Sound
-						For i = 0 To 31
-							If snd\channels[i]<>0 Then
-								StopChannel snd\channels[i]
-							EndIf
-						Next
-					Next
+					KillSounds()
 					
 					For e.Events = Each Events
 						If e\EventName = "alarm" Then 
@@ -1827,6 +1828,7 @@ Include "Particles.bb"
 Global ClosestButton%, ClosestDoor.Doors
 Global SelectedDoor.Doors, UpdateDoorsTimer#
 Global DoorTempID%
+
 Type Doors
 	Field obj%, obj2%, frameobj%, buttons%[2]
 	Field locked%, open%, angle%, openstate#, fastopen%
@@ -1834,8 +1836,6 @@ Type Doors
 	Field timer%, timerstate#
 	Field KeyCard%
 	Field room.Rooms
-
-  Field DoorBust%
 	
 	Field DisableWaypoint%
 	
@@ -1854,6 +1854,7 @@ Type Doors
 	
 	Field LinkedDoor.Doors
 	
+	
 	Field IsElevatorDoor% = False
 	
 	Field MTFClose% = True
@@ -1861,6 +1862,13 @@ Type Doors
 	
 	Field DoorHitOBJ%
 End Type 
+
+Const DOOR_DEFAULT = 0
+Const DOOR_CONTAINMENT = 1
+Const DOOR_HCZ = 2
+Const DOOR_ELEVATOR = 3
+Const DOOR_914 = 4
+Const DOOR_WINDOWED = 5
 
 Dim BigDoorOBJ(2), HeavyDoorObj(2)
 Dim OBJTunnel(7)
@@ -1906,6 +1914,20 @@ Function CreateDoor.Doors(lvl, x#, y#, z#, angle#, room.Rooms, dopen% = False,  
 			ScaleEntity d\obj2, RoomScale, RoomScale, RoomScale
 		EndIf
 		d\frameobj = CopyEntity(DoorFrameOBJ)
+	ElseIf big=DOOR_WINDOWED Then
+		For d2 = Each Doors
+			If d2\dir = 5 Then
+				d\obj = CopyEntity(d\obj)
+				ScaleEntity d\obj, RoomScale, RoomScale, RoomScale
+				Exit
+			EndIf
+		Next
+		If d\obj = 0 Then
+			;d\obj = LoadMesh_Strict("GFX\map\WindowedDoor.b3d")
+			d\obj = LoadMesh_Strict("GFX\map\officedoor.b3d")
+			ScaleEntity d\obj, RoomScale, RoomScale, RoomScale
+		EndIf
+		d\frameobj = CopyEntity(DoorFrameOBJ)
 	Else
 		d\obj = CopyEntity(DoorOBJ)
 		ScaleEntity(d\obj, (204.0 * RoomScale) / MeshWidth(d\obj), 312.0 * RoomScale / MeshHeight(d\obj), 16.0 * RoomScale / MeshDepth(d\obj))
@@ -1945,9 +1967,17 @@ Function CreateDoor.Doors(lvl, x#, y#, z#, angle#, room.Rooms, dopen% = False,  
 			Else
 				d\buttons[i] = CopyEntity(ButtonOBJ)
 			End If
+			
 		EndIf
-		
 		ScaleEntity(d\buttons[i], 0.03, 0.03, 0.03)
+	Next
+	
+	For i = 0 To 1
+		If d\locked Then
+			If d\buttons[i] <> 0 Then EntityTexture(d\buttons[i], ButtonTextureLocked)
+		Else
+			If d\buttons[i] <> 0 Then EntityTexture(d\buttons[i], ButtonTexture)
+		EndIf
 	Next
 	
 	If big=1 Then
@@ -2032,22 +2062,16 @@ Function CreateButton(x#,y#,z#, pitch#,yaw#,roll#=0)
 	
 	ScaleEntity(obj, 0.03, 0.03, 0.03)
 	
+	ButtonTexture = LoadTexture_Strict("GFX\map\KeyPad.jpg")
+	ButtonTextureActive = LoadTexture_Strict("GFX\map\KeyPad_Active.png")
+	ButtonTextureLocked = LoadTexture_Strict("GFX\map\KeyPad_Locked.png")
+	
 	PositionEntity obj, x,y,z
 	RotateEntity obj, pitch,yaw,roll
 	
 	EntityPickMode(obj, 2)	
 	
 	Return obj
-End Function
-
-
-Function UpdateDoorBusting()
-
-For d.doors = Each Doors
-    If DoorBust = 1 Then
-    Animate2(d\obj, SetAnimTime(d\obj), 1, 10, 5.0, False)
-    Animate2(d\obj2,SetAnimTime(d\obj2), 1, 10, 5.0, False)
-    EndIf
 End Function
 
 Function UpdateDoors()
@@ -2129,25 +2153,28 @@ Function UpdateDoors()
 			If d\open Then
 				If d\openstate < 180 Then
 					Select d\dir
-						Case 0
+						Case DOOR_DEFAULT
 							d\openstate = Min(180, d\openstate + FPSfactor * 2 * (d\fastopen+1))
 							MoveEntity(d\obj, Sin(d\openstate) * (d\fastopen*2+1) * FPSfactor / 80.0, 0, 0)
-							If d\obj2 <> 0 Then MoveEntity(d\obj2, Sin(d\openstate)* (d\fastopen+1) * FPSfactor / 80.0, 0, 0)		
-						Case 1
+							If d\obj2 <> 0 Then MoveEntity(d\obj2, Sin(d\openstate)* (d\fastopen+1) * FPSfactor / 80.0, 0, 0)
+						Case DOOR_CONTAINMENT
 							d\openstate = Min(180, d\openstate + FPSfactor * 0.8)
 							MoveEntity(d\obj, Sin(d\openstate) * FPSfactor / 180.0, 0, 0)
 							If d\obj2 <> 0 Then MoveEntity(d\obj2, -Sin(d\openstate) * FPSfactor / 180.0, 0, 0)
-						Case 2
+						Case DOOR_HCZ
 							d\openstate = Min(180, d\openstate + FPSfactor * 2 * (d\fastopen+1))
 							MoveEntity(d\obj, Sin(d\openstate) * (d\fastopen+1) * FPSfactor / 85.0, 0, 0)
 							If d\obj2 <> 0 Then MoveEntity(d\obj2, Sin(d\openstate)* (d\fastopen*2+1) * FPSfactor / 120.0, 0, 0)
-						Case 3
+						Case DOOR_ELEVATOR
 							d\openstate = Min(180, d\openstate + FPSfactor * 2 * (d\fastopen+1))
 							MoveEntity(d\obj, Sin(d\openstate) * (d\fastopen*2+1) * FPSfactor / 162.0, 0, 0)
 							If d\obj2 <> 0 Then MoveEntity(d\obj2, Sin(d\openstate)* (d\fastopen*2+1) * FPSfactor / 162.0, 0, 0)
-						Case 4 ;Used for 914 only
+						Case DOOR_914 ;Used for 914 only
 							d\openstate = Min(180, d\openstate + FPSfactor * 1.4)
 							MoveEntity(d\obj, Sin(d\openstate) * FPSfactor / 114.0, 0, 0)
+						Case DOOR_WINDOWED
+							d\openstate = CurveValue(180.0, d\openstate, 40.0) + (FPSfactor * 0.01)
+							RotateEntity(d\obj, 0.0, d\room\Angle + d\angle + (d\openstate / 2.5), 0.0)
 					End Select
 				Else
 					d\fastopen = 0
@@ -2171,11 +2198,11 @@ Function UpdateDoors()
 			Else
 				If d\openstate > 0 Then
 					Select d\dir
-						Case 0
+						Case DOOR_DEFAULT
 							d\openstate = Max(0, d\openstate - FPSfactor * 2 * (d\fastopen+1))
 							MoveEntity(d\obj, Sin(d\openstate) * -FPSfactor * (d\fastopen+1) / 80.0, 0, 0)
 							If d\obj2 <> 0 Then MoveEntity(d\obj2, Sin(d\openstate) * (d\fastopen+1) * -FPSfactor / 80.0, 0, 0)	
-						Case 1
+						Case DOOR_CONTAINMENT
 							d\openstate = Max(0, d\openstate - FPSfactor*0.8)
 							MoveEntity(d\obj, Sin(d\openstate) * -FPSfactor / 180.0, 0, 0)
 							If d\obj2 <> 0 Then MoveEntity(d\obj2, Sin(d\openstate) * FPSfactor / 180.0, 0, 0)
@@ -2202,15 +2229,17 @@ Function UpdateDoors()
 									Next
 								EndIf
 							EndIf
-						Case 2
+						Case DOOR_HCZ
 							d\openstate = Max(0, d\openstate - FPSfactor * 2 * (d\fastopen+1))
 							MoveEntity(d\obj, Sin(d\openstate) * -FPSfactor * (d\fastopen+1) / 85.0, 0, 0)
+							If d\fastopen > 0 And d\openstate = 180 Then CameraShake = 3.0
 							If d\obj2 <> 0 Then MoveEntity(d\obj2, Sin(d\openstate) * (d\fastopen+1) * -FPSfactor / 120.0, 0, 0)
-						Case 3
+						Case DOOR_ELEVATOR
 							d\openstate = Max(0, d\openstate - FPSfactor * 2 * (d\fastopen+1))
 							MoveEntity(d\obj, Sin(d\openstate) * -FPSfactor * (d\fastopen+1) / 162.0, 0, 0)
+							If d\fastopen > 0 And d\openstate = 180 Then CameraShake = 3.0
 							If d\obj2 <> 0 Then MoveEntity(d\obj2, Sin(d\openstate) * (d\fastopen+1) * -FPSfactor / 162.0, 0, 0)
-						Case 4 ;Used for 914 only
+						Case DOOR_914 ;Used for 914 only
 							d\openstate = Min(180, d\openstate - FPSfactor * 1.4)
 							MoveEntity(d\obj, Sin(d\openstate) * -FPSfactor / 114.0, 0, 0)
 					End Select
@@ -2247,6 +2276,16 @@ Function UpdateDoors()
 					EndIf
 				EndIf
 			EndIf
+			
+			For i = 0 To 1
+				If d\locked Then
+					EntityTexture(d\buttons[i], ButtonTextureLocked)
+				ElseIf d\openstate > 0 And d\openstate < 180
+					EntityTexture(d\buttons[i], ButtonTextureActive)
+				Else
+					EntityTexture(d\buttons[i], ButtonTexture)
+				EndIf
+			Next
 			
 		EndIf
 		UpdateSoundOrigin(d\SoundCHN,Camera,d\frameobj)
@@ -2695,6 +2734,8 @@ Function InitEvents()
 	
 	CreateEvent("room1archive", "room1archive", 0, 1.0)
 	
+	CreateEvent("auditorium", "auditorium", 0)
+	
 End Function
 
 Include "UpdateEvents.bb"
@@ -2744,9 +2785,7 @@ Global LeverOBJ%, LeverBaseOBJ%
 Global DoorColl%
 Global ButtonOBJ%, ButtonKeyOBJ%, ButtonCodeOBJ%, ButtonScannerOBJ%
 
-Dim DecalTextures%(20)
-
-Global Monitor%, MonitorTexture%
+Global Monitor%, MonitorTexture%, MonitorRec%
 Global CamBaseOBJ%, CamOBJ%
 
 Global LiquidObj%,MTFObj%,GuardObj%,ClassDObj%
@@ -3032,12 +3071,12 @@ Repeat
 		
 		;[Block]
 		
-		Local darkA# = 0.0
+		Local DarkAlpha# = 0.0
 		If (Not MenuOpen)  Then
 			If Sanity < 0 Then
 				If RestoreSanity Then Sanity = Min(Sanity + FPSfactor, 0.0)
 				If Sanity < (-200) Then 
-					darkA = Max(Min((-Sanity - 200) / 700.0, 0.6), darkA)
+					DarkAlpha = Max(Min((-Sanity - 200) / 700.0, 0.6), DarkAlpha)
 					If KillTimer => 0 Then 
 						HeartBeatVolume = Min(Abs(Sanity+200)/500.0,1.0)
 						HeartBeatRate = Max(70 + Abs(Sanity+200)/6.0,HeartBeatRate)
@@ -3050,7 +3089,7 @@ Repeat
 				EyeStuck = Max(EyeStuck-FPSfactor,0)
 				
 				If EyeStuck < 9000 Then BlurTimer = Max(BlurTimer, (9000-EyeStuck)*0.5)
-				If EyeStuck < 6000 Then darkA = Min(Max(darkA, (6000-EyeStuck)/5000.0),1.0)
+				If EyeStuck < 6000 Then darkA = Min(Max(DarkAlpha, (6000-EyeStuck)/5000.0),1.0)
 				If EyeStuck < 9000 And EyeStuck+FPSfactor =>9000 Then 
 					Msg = "The eyedrops are causing your eyes to tear up."
 					MsgTimer = 70*6
@@ -3059,11 +3098,11 @@ Repeat
 			
 			If BlinkTimer < 0 Then
 				If BlinkTimer > - 5 Then
-					darkA = Max(darkA, Sin(Abs(BlinkTimer * 18.0)))
+					DarkAlpha = Max(darkA, Sin(Abs(BlinkTimer * 18.0)))
 				ElseIf BlinkTimer > - 15
-					darkA = 1.0
+					DarkAlpha = 1.0
 				Else
-					darkA = Max(darkA, Abs(Sin(BlinkTimer * 18.0)))
+					DarkAlpha = Max(darkA, Abs(Sin(BlinkTimer * 18.0)))
 				EndIf
 				
 				If BlinkTimer <= - 20 Then
@@ -3084,7 +3123,7 @@ Repeat
 				BlinkTimer = BlinkTimer - FPSfactor * 0.6 * BlinkEffect
 				If EyeIrritation > 0 Then BlinkTimer=BlinkTimer-Min(EyeIrritation / 100.0 + 1.0, 4.0) * FPSfactor
 				
-				darkA = Max(darkA, 0.0)
+				DarkAlpha = Max(darkA, 0.0)
 			End If
 			
 			EyeIrritation = Max(0, EyeIrritation - FPSfactor)
@@ -3096,11 +3135,11 @@ Repeat
 			EndIf
 			
 			LightBlink = Max(LightBlink - (FPSfactor / 35.0), 0)
-			If LightBlink > 0 Then darkA = Min(Max(darkA, LightBlink * Rnd(0.3, 0.8)), 1.0)
+			If LightBlink > 0 Then DarkAlpha = Min(Max(darkA, LightBlink * Rnd(0.3, 0.8)), 1.0)
 			
 			If Using294 Then darkA=1.0
 			
-			If (Not WearingNightVision) Then darkA = Max((1.0-SecondaryLightOn)*0.9, darkA)
+			If (Not WearingNightVision) Then DarkAlpha = Max((1.0-SecondaryLightOn)*0.9, darkA)
 			
 			If KillTimer < 0 Then
 				InvOpen = False
@@ -3113,7 +3152,7 @@ Repeat
 					MenuOpen = True 
 					If SelectedEnding <> "" Then EndingTimer = Min(KillTimer,-0.1)
 				EndIf
-				darkA = Max(darkA, Min(Abs(KillTimer / 400.0), 1.0))
+				DarkAlpha = Max(darkA, Min(Abs(KillTimer / 400.0), 1.0))
 			EndIf
 			
 			If FallTimer < 0 Then
@@ -3130,13 +3169,13 @@ Repeat
 				SelectedMonitor = Null
 				BlurTimer = Abs(FallTimer*10)
 				FallTimer = FallTimer-FPSfactor
-				darkA = Max(darkA, Min(Abs(FallTimer / 400.0), 1.0))				
+				DarkAlpha = Max(DarkAlpha, Min(Abs(FallTimer / 400.0), 1.0))				
 			EndIf
 			
 			If SelectedItem <> Null Then
-				If SelectedItem\itemtemplate\tempname = "navigator" Or SelectedItem\itemtemplate\tempname = "nav" Then darkA = Max(darkA, 0.5)
+				If SelectedItem\itemtemplate\tempname = "navigator" Or SelectedItem\itemtemplate\tempname = "nav" Then DarkAlpha = Max(darkA, 0.5)
 			End If
-			If SelectedScreen <> Null Then darkA = Max(darkA, 0.5)
+			If SelectedScreen <> Null Then DarkAlpha = Max(DarkAlpha, 0.5)
 			
 			EntityAlpha(Dark, darkA)	
 		EndIf
@@ -3253,12 +3292,6 @@ Repeat
 		
 		DrawGUI()
 		
-		If EndingTimer < 0 Then
-			If SelectedEnding <> "" Then DrawEnding()
-		Else
-			DrawMenu()			
-		EndIf
-		
 		UpdateConsole()
 		
 		If PlayerRoom <> Null Then
@@ -3270,6 +3303,7 @@ Repeat
 								Msg = "Double click on the document to view it."
 								MsgTimer=70*7
 								e\EventState3 = 50
+								Exit
 							EndIf
 						EndIf
 					EndIf
@@ -3278,8 +3312,9 @@ Repeat
 		EndIf
 		
 		If MsgTimer > 0 Then
+			;If temp = True -> move the message below
 			Local temp% = False
-			If (Not InvOpen%)
+			If (Not InvOpen And OtherOpen = Null) Then
 				If SelectedItem <> Null
 					If SelectedItem\itemtemplate\tempname = "paper" Or SelectedItem\itemtemplate\tempname = "oldpaper"
 						temp% = True
@@ -3309,6 +3344,12 @@ Repeat
 		
 		Color 255, 255, 255
 		If ShowFPS Then AASetFont ConsoleFont : AAText 20, 20, "FPS: " + FPS : AASetFont Font1
+		
+		If EndingTimer < 0 Then
+			If SelectedEnding <> "" Then DrawEnding()
+		Else
+			DrawMenu()			
+		EndIf
 		
 		DrawQuickLoading()
 		
@@ -3543,7 +3584,7 @@ Function QuickLoadEvents()
 			;[End Block]
 		Case "room205"
 			;[Block]
-			If e\EventState=0 Or e\room\Objects[0]=0 Then
+			If e\EventState=0 Or e\EventStr <> "loaddone" Then
 				If e\EventStr = "load0"
 					e\room\Objects[3] = LoadAnimMesh_Strict("GFX\npcs\205_demon1.b3d")
 					QuickLoadPercent = 10
@@ -3660,8 +3701,6 @@ Function QuickLoadEvents()
 						Local ch.Chunk
 						For i = -2 To 0 Step 2
 							ch = CreateChunk(-1,x#*(i*2.5),EntityY(e\room\obj),z#,True)
-						Next
-						For i = -2 To 0 Step 2
 							ch = CreateChunk(-1,x#*(i*2.5),EntityY(e\room\obj),z#-40,True)
 						Next
 						e\EventState = 2.0
@@ -3798,8 +3837,11 @@ Function DrawEnding()
 					
 					Local roomamount = 0, roomsfound = 0
 					For r.Rooms = Each Rooms
-						roomamount = roomamount + 1
-						roomsfound = roomsfound + r\found
+						Local RN$ = r\RoomTemplate\Name$
+						If RN$ <> "dimension1499" And RN$ <> "gatea" And RN$ <> "pocketdimension" Then 
+							roomamount = roomamount + 1
+							roomsfound = roomsfound + r\found
+						EndIf
 					Next
 					
 					Local docamount=0, docsfound=0
@@ -3811,7 +3853,7 @@ Function DrawEnding()
 					Next
 					
 					Local scpsEncountered=1
-					For i = 0 To 24
+					For i = Achv008 To Achv1499
 						scpsEncountered = scpsEncountered+Achievements(i)
 					Next
 					
@@ -4119,7 +4161,10 @@ Function MovePlayer()
 	
 	For i = 0 To MaxItemAmount-1
 		If Inventory(i)<>Null Then
-			If Inventory(i)\itemtemplate\tempname = "finevest" Then Stamina = Min(Stamina, 60)
+			If Inventory(i)\itemtemplate\tempname = "finevest" Then
+				Stamina = Min(Stamina, 60)
+				Exit
+			EndIf
 		EndIf
 	Next
 	
@@ -4168,33 +4213,27 @@ Function MovePlayer()
 				If CurrStepSFX=0 Then
 					temp = GetStepSound(Collider)
 					
-					If Sprint = 1.0 Then
+					If Sprint = 2.5 Then
 						PlayerSoundVolume = Max(4.0,PlayerSoundVolume)
 						tempchn% = PlaySound_Strict(StepSFX(temp, 0, Rand(0, 7)))
-						ChannelVolume tempchn, (1.0-(Crouch*0.6))*SFXVolume#
 					Else
 						PlayerSoundVolume = Max(2.5-(Crouch*0.6),PlayerSoundVolume)
 						tempchn% = PlaySound_Strict(StepSFX(temp, 1, Rand(0, 7)))
-						ChannelVolume tempchn, (1.0-(Crouch*0.6))*SFXVolume#
 					End If
 				ElseIf CurrStepSFX=1
 					tempchn% = PlaySound_Strict(Step2SFX(Rand(0, 2)))
-					ChannelVolume tempchn, (1.0-(Crouch*0.4))*SFXVolume#
 				ElseIf CurrStepSFX=2
 					tempchn% = PlaySound_Strict(Step2SFX(Rand(3,5)))
-					ChannelVolume tempchn, (1.0-(Crouch*0.4))*SFXVolume#
 				ElseIf CurrStepSFX=3
-					If Sprint = 1.0 Then
+					If Sprint = 2.5 Then
 						PlayerSoundVolume = Max(4.0,PlayerSoundVolume)
 						tempchn% = PlaySound_Strict(StepSFX(0, 0, Rand(0, 7)))
-						ChannelVolume tempchn, (1.0-(Crouch*0.6))*SFXVolume#
 					Else
 						PlayerSoundVolume = Max(2.5-(Crouch*0.6),PlayerSoundVolume)
 						tempchn% = PlaySound_Strict(StepSFX(0, 1, Rand(0, 7)))
-						ChannelVolume tempchn, (1.0-(Crouch*0.6))*SFXVolume#
 					End If
 				EndIf
-				
+				If tempchn <> 0 Then ChannelVolume tempchn, (1.0-(Crouch*0.6))*SFXVolume#
 			EndIf	
 		EndIf
 	Else ;noclip on
@@ -4326,7 +4365,7 @@ Function MovePlayer()
 			PositionEntity pvt, EntityX(Collider)+Rnd(-0.05,0.05),EntityY(Collider)-0.05,EntityZ(Collider)+Rnd(-0.05,0.05)
 			TurnEntity pvt, 90, 0, 0
 			EntityPick(pvt,0.3)
-			de.decals = CreateDecal(Rand(15,16), PickedX(), PickedY()+0.005, PickedZ(), 90, Rand(360), 0)
+			de.decals = CreateDecal(Rand(DECAL_BLOOD_DROP_1,DECAL_BLOOD_DROP_2), PickedX(), PickedY()+0.005, PickedZ(), 90, Rand(360), 0)
 			de\size = Rnd(0.03,0.08)*Min(Injuries,3.0) : EntityAlpha(de\obj, 1.0) : ScaleSprite de\obj, de\size, de\size
 			tempchn% = PlaySound_Strict (DripSFX(Rand(0,2)))
 			ChannelVolume tempchn, Rnd(0.0,0.8)*SFXVolume
@@ -4407,7 +4446,7 @@ Function MouseLook()
 		Local up# = (Sin(Shake) / (20.0+CrouchState*20.0))*0.6;, side# = Cos(Shake / 2.0) / 35.0		
 		Local roll# = Max(Min(Sin(Shake/2)*2.5*Min(Injuries+0.25,3.0),8.0),-8.0)
 		
-		;käännetään kameraa sivulle jos pelaaja on vammautunut
+		;kÃ¤Ã¤nnetÃ¤Ã¤n kameraa sivulle jos pelaaja on vammautunut
 		;RotateEntity Collider, EntityPitch(Collider), EntityYaw(Collider), Max(Min(up*30*Injuries,50),-50)
 		PositionEntity Camera, EntityX(Collider), EntityY(Collider), EntityZ(Collider)
 		RotateEntity Camera, 0, EntityYaw(Collider), roll*0.5
@@ -4484,7 +4523,7 @@ Function MouseLook()
 		
 	EndIf
 	
-	;pölyhiukkasia
+	;pÃ¶lyhiukkasia
 	If ParticleAmount=2
 		If Rand(35) = 1 Then
 			Local pvt% = CreatePivot()
@@ -4581,10 +4620,10 @@ Function MouseLook()
 						SCP1025state[i]=SCP1025state[i]+FPSfactor*0.0005
 					EndIf
 					If SCP1025state[i]>20.0 Then
-						If SCP1025state[i]-FPSfactor<=20.0 Then Msg="The pain in your stomach is becoming unbearable."
+						If SCP1025state[i]-FPSfactor<=20.0 Then Msg="The pain in your stomach is becoming unbearable." : MsgTimer = 70*4
 						Stamina = Stamina - FPSfactor * 0.3
 					ElseIf SCP1025state[i]>10.0
-						If SCP1025state[i]-FPSfactor<=10.0 Then Msg="Your stomach is aching."
+						If SCP1025state[i]-FPSfactor<=10.0 Then Msg="Your stomach is aching." : MsgTimer = 70*4
 					EndIf
 				Case 4 ;asthma
 					If Stamina < 35 Then
@@ -4722,12 +4761,19 @@ Function DrawGUI()
 	EndIf
 	
 	If ClosestItem <> Null Then
+		temp = CreatePivot()
+		PositionEntity temp, EntityX(Camera), EntityY(Camera), EntityZ(Camera)
+		;PointEntity temp, ClosestItem\collider
 		yawvalue# = -DeltaYaw(Camera, ClosestItem\collider)
 		If yawvalue > 90 And yawvalue <= 180 Then yawvalue = 90
 		If yawvalue > 180 And yawvalue < 270 Then yawvalue = 270
 		pitchvalue# = -DeltaPitch(Camera, ClosestItem\collider)
 		If pitchvalue > 90 And pitchvalue <= 180 Then pitchvalue = 90
 		If pitchvalue > 180 And pitchvalue < 270 Then pitchvalue = 270
+		
+		AASetFont Font6
+		Color(255,255,255)
+		AAText(GraphicWidth / 2 + Sin(yawvalue) * (GraphicWidth / 3), GraphicHeight / 2 - Sin(pitchvalue) * (GraphicHeight / 3) - 58, ClosestItem\name, True)
 		
 		DrawImage(HandIcon2, GraphicWidth / 2 + Sin(yawvalue) * (GraphicWidth / 3) - 32, GraphicHeight / 2 - Sin(pitchvalue) * (GraphicHeight / 3) - 32)
 	EndIf
@@ -4760,14 +4806,17 @@ Function DrawGUI()
 	If HUDenabled Then 
 		
 		Local width% = 204, height% = 20
-		x% = 80
+		x% = 80 
 		y% = GraphicHeight - 95
 		
-		Color 255, 255, 255	
+		Color 245, 242, 66
 		Rect (x, y, width, height, False)
-		For i = 1 To Int(((width - 2) * (BlinkTimer / (BLINKFREQ))) / 10)
-			DrawImage(BlinkMeterIMG, x + 3 + 10 * (i - 1), y + 3)
-		Next	
+		If BlinkTimer < 180.0 Then
+			Color 255, 0, 0
+		Else
+			Color 245, 242, 66
+		EndIf
+		Rect(x + 3, y + 3, Float(BlinkTimer * ((width - 6.0) / BLINKFREQ)), 14) 
 		Color 0, 0, 0
 		Rect(x - 50, y, 30, 30)
 		
@@ -4776,22 +4825,29 @@ Function DrawGUI()
 			Rect(x - 50 - 3, y - 3, 30 + 6, 30 + 6)
 		End If
 		
-		Color 255, 255, 255
+		Color 245, 242, 66
 		Rect(x - 50 - 1, y - 1, 30 + 2, 30 + 2, False)
 		
-		DrawImage BlinkIcon, x - 50, y
+		If BlinkTimer > -5
+			DrawImage BlinkIcon, x - 50, y
+		Else 
+			DrawImage BlinkIcon2, x - 50, y
+		EndIf
 		
 		y = GraphicHeight - 55
-		Color 255, 255, 255
+		Color 3, 115, 252
 		Rect (x, y, width, height, False)
-		For i = 1 To Int(((width - 2) * (Stamina / 100.0)) / 10)
-			DrawImage(StaminaMeterIMG, x + 3 + 10 * (i - 1), y + 3)
-		Next	
+		If Stamina < 27.0 Then
+			Color 255, 0, 0
+		Else
+			Color 3, 115, 252
+		EndIf
+		Rect(x + 3, y + 3, Float(Stamina * ((width - 6.0) / 100.0)), 14) 
 		
 		Color 0, 0, 0
 		Rect(x - 50, y, 30, 30)
 		
-		Color 255, 255, 255
+		Color 3, 115, 252
 		Rect(x - 50 - 1, y - 1, 30 + 2, 30 + 2, False)
 		If Crouch Then
 			DrawImage CrouchIcon, x - 50, y
@@ -4956,7 +5012,7 @@ Function DrawGUI()
 										
 										If SelectedDoor\Code = Str(AccessCode) Then
 											GiveAchievement(AchvMaynard)
-										ElseIf SelectedDoor\Code = "7816"
+										ElseIf SelectedDoor\Code = Str(HARPCODE)
 											GiveAchievement(AchvHarp)
 										EndIf									
 										
@@ -5041,20 +5097,6 @@ Function DrawGUI()
 	
 	If OtherOpen<>Null Then
 		;[Block]
-		If (PlayerRoom\RoomTemplate\Name = "gatea") Then
-			HideEntity Fog
-			CameraFogRange Camera, 5,30
-			CameraFogColor (Camera,200,200,200)
-			CameraClsColor (Camera,200,200,200)					
-			CameraRange(Camera, 0.05, 30)
-		Else If (PlayerRoom\RoomTemplate\Name = "exit1") And (EntityY(Collider)>1040.0*RoomScale)
-			HideEntity Fog
-			CameraFogRange Camera, 5,45
-			CameraFogColor (Camera,200,200,200)
-			CameraClsColor (Camera,200,200,200)					
-			CameraRange(Camera, 0.05, 60)
-		EndIf
-		
 		PrevOtherOpen = OtherOpen
 		OtherSize=OtherOpen\invSlots;Int(OtherOpen\state2)
 		
@@ -5078,7 +5120,7 @@ Function DrawGUI()
 		spacing% = 35
 		
 		x = GraphicWidth / 2 - (width * MaxItemAmount /2 + spacing * (MaxItemAmount / 2 - 1)) / 2
-		y = GraphicHeight / 2 - (height * OtherSize /5 + spacing * (OtherSize / 5 - 1)) / 2;height
+		y = GraphicHeight / 2 - (height * OtherSize /5 + height * (OtherSize / 5 - 1)) / 2;height
 		
 		ItemAmount = 0
 		For  n% = 0 To OtherSize - 1
@@ -5106,6 +5148,9 @@ Function DrawGUI()
 			If OtherOpen\SecondInv[n] <> Null And SelectedItem <> OtherOpen\SecondInv[n] Then
 			;drawimage(OtherOpen\SecondInv[n].InvIMG, x + width / 2 - 32, y + height / 2 - 32)
 				If isMouseOn Then
+					AASetFont Font1
+					Color 0,0,0
+					AAText(x + width / 2 + 1, y + height + spacing - 15 + 1, OtherOpen\SecondInv[n]\itemtemplate\name, True)
 					Color 255, 255, 255	
 					AAText(x + width / 2, y + height + spacing - 15, OtherOpen\SecondInv[n]\itemtemplate\name, True)				
 					If SelectedItem = Null Then
@@ -5131,7 +5176,10 @@ Function DrawGUI()
 			Else
 				If isMouseOn And MouseHit1 Then
 					For z% = 0 To OtherSize - 1
-						If OtherOpen\SecondInv[z] = SelectedItem Then OtherOpen\SecondInv[z] = Null
+						If OtherOpen\SecondInv[z] = SelectedItem Then
+							OtherOpen\SecondInv[z] = Null
+							Exit
+						EndIf
 					Next
 					OtherOpen\SecondInv[n] = SelectedItem
 				EndIf
@@ -5185,7 +5233,10 @@ Function DrawGUI()
 					
 					SelectedItem\Picked = False
 					For z% = 0 To OtherSize - 1
-						If OtherOpen\SecondInv[z] = SelectedItem Then OtherOpen\SecondInv[z] = Null
+						If OtherOpen\SecondInv[z] = SelectedItem Then
+							OtherOpen\SecondInv[z] = Null
+							Exit
+						EndIf
 					Next
 					
 					isEmpty=True
@@ -5229,7 +5280,10 @@ Function DrawGUI()
 					
 					If PrevOtherOpen\SecondInv[MouseSlot] = Null Then
 						For z% = 0 To OtherSize - 1
-							If PrevOtherOpen\SecondInv[z] = SelectedItem Then PrevOtherOpen\SecondInv[z] = Null
+							If PrevOtherOpen\SecondInv[z] = SelectedItem Then
+								PrevOtherOpen\SecondInv[z] = Null
+								Exit
+							EndIf
 						Next
 						PrevOtherOpen\SecondInv[MouseSlot] = SelectedItem
 						SelectedItem = Null
@@ -5255,21 +5309,6 @@ Function DrawGUI()
 		;[End Block]
 		
 	Else If InvOpen Then
-		
-		If (PlayerRoom\RoomTemplate\Name = "gatea") Then
-			HideEntity Fog
-			CameraFogRange Camera, 5,30
-			CameraFogColor (Camera,200,200,200)
-			CameraClsColor (Camera,200,200,200)					
-			CameraRange(Camera, 0.05, 30)
-		ElseIf (PlayerRoom\RoomTemplate\Name = "exit1") And (EntityY(Collider)>1040.0*RoomScale)
-			HideEntity Fog
-			CameraFogRange Camera, 5,45
-			CameraFogColor (Camera,200,200,200)
-			CameraClsColor (Camera,200,200,200)					
-			CameraRange(Camera, 0.05, 60)
-		EndIf
-		
 		SelectedDoor = Null
 		
 		width% = 70
@@ -5277,7 +5316,7 @@ Function DrawGUI()
 		spacing% = 35
 		
 		x = GraphicWidth / 2 - (width * MaxItemAmount /2 + spacing * (MaxItemAmount / 2 - 1)) / 2
-		y = GraphicHeight / 2 - height
+		y = GraphicHeight / 2 - (height * MaxItemAmount /5 + height * (MaxItemAmount / 5 - 1)) / 2
 		
 		ItemAmount = 0
 		For  n% = 0 To MaxItemAmount - 1
@@ -5381,7 +5420,10 @@ Function DrawGUI()
 			Else
 				If isMouseOn And MouseHit1 Then
 					For z% = 0 To MaxItemAmount - 1
-						If Inventory(z) = SelectedItem Then Inventory(z) = Null
+						If Inventory(z) = SelectedItem Then
+							Inventory(z) = Null
+							Exit
+						EndIf
 					Next
 					Inventory(n) = SelectedItem
 				End If
@@ -5427,7 +5469,10 @@ Function DrawGUI()
 				Else
 					If Inventory(MouseSlot) = Null Then
 						For z% = 0 To MaxItemAmount - 1
-							If Inventory(z) = SelectedItem Then Inventory(z) = Null
+							If Inventory(z) = SelectedItem Then
+								Inventory(z) = Null
+								Exit
+							EndIf
 						Next
 						Inventory(MouseSlot) = SelectedItem
 						SelectedItem = Null
@@ -5453,6 +5498,7 @@ Function DrawGUI()
 														If Inventory(ri) = SelectedItem Then
 															Inventory(ri) = Null
 															PlaySound_Strict(PickSFX(SelectedItem\itemtemplate\sound))
+															Exit
 														EndIf
 													Next
 													added = SelectedItem
@@ -5497,6 +5543,7 @@ Function DrawGUI()
 														If Inventory(ri) = SelectedItem Then
 															Inventory(ri) = Null
 															PlaySound_Strict(PickSFX(SelectedItem\itemtemplate\sound))
+															Exit
 														EndIf
 													Next
 													added = SelectedItem
@@ -5956,6 +6003,7 @@ Function DrawGUI()
 								SelectedItem\itemtemplate\img = LoadImage_Strict("GFX\items\bn.it")
 								SetBuffer ImageBuffer(SelectedItem\itemtemplate\img)
 								Color 0,0,0
+								AASetFont Font1
 								AAText 277, 469, AccessCode, True, True
 								Color 255,255,255
 								SetBuffer BackBuffer()
@@ -6009,21 +6057,21 @@ Function DrawGUI()
 				Case "cup"
 					;[Block]
 					If CanUseItem(False,False,True)
-						SelectedItem\name = Trim(Lower(SelectedItem\name))
-						If Left(SelectedItem\name, Min(6,Len(SelectedItem\name))) = "cup of" Then
-							SelectedItem\name = Right(SelectedItem\name, Len(SelectedItem\name)-7)
-						ElseIf Left(SelectedItem\name, Min(8,Len(SelectedItem\name))) = "a cup of" 
-							SelectedItem\name = Right(SelectedItem\name, Len(SelectedItem\name)-9)
+						strtemp = Trim(Lower(SelectedItem\name))
+						If Left(strtemp, 6) = "cup of" Then
+							strtemp = Right(strtemp, Len(strtemp)-7)
+						ElseIf Left(strtemp, 8) = "a cup of"
+							strtemp = Right(strtemp, Len(strtemp)-9)
 						EndIf
-						
-						;the state of refined items is more than 1.0 (fine setting increases it by 1, very fine doubles it)
-						x2 = (SelectedItem\state+1.0)
 						
 						Local iniStr$ = "DATA\SCP-294.ini"
 						
-						Local loc% = GetINISectionLocation(iniStr, SelectedItem\name)
+						Local loc% = GetINISectionLocation(iniStr, strtemp)
 						
 						;Stop
+						
+						strtemp = GetINIString2(iniStr, loc, "sound")
+						If strtemp <> "" Then PlaySound_Strict LoadTempSound(strtemp)
 						
 						strtemp = GetINIString2(iniStr, loc, "message")
 						If strtemp <> "" Then Msg = strtemp : MsgTimer = 70*6
@@ -6032,24 +6080,42 @@ Function DrawGUI()
 							DeathMSG = GetINIString2(iniStr, loc, "deathmessage")
 							If GetINIInt2(iniStr, loc, "lethal") Then Kill()
 						EndIf
-						BlurTimer = GetINIInt2(iniStr, loc, "blur")*70;*temp
-						If VomitTimer = 0 Then VomitTimer = GetINIInt2(iniStr, loc, "vomit")
-						CameraShakeTimer = GetINIString2(iniStr, loc, "camerashake")
-						Injuries = Max(Injuries + GetINIInt2(iniStr, loc, "damage"),0);*temp
-						Bloodloss = Max(Bloodloss + GetINIInt2(iniStr, loc, "blood loss"),0);*temp
-						strtemp =  GetINIString2(iniStr, loc, "sound")
-						If strtemp<>"" Then
-							PlaySound_Strict LoadTempSound(strtemp)
+						
+						BlurTimer = Max(BlurTimer + GetINIInt2(iniStr, loc, "blur")*70, 0);*temp
+						CameraShakeTimer = Max(CameraShakeTimer + GetINIString2(iniStr, loc, "camerashake"), 0)
+						
+						temp = GetINIInt2(iniStr, loc, "vomit")*70
+						If temp > 0 Then
+							If VomitTimer = 0 Then
+								VomitTimer = temp
+							Else
+								VomitTimer = Min(VomitTimer, temp)
+							EndIf
 						EndIf
+						
+						temp = GetINIInt2(iniStr, loc, "deathtimer")*70
+						If temp > 0 Then
+							If DeathTimer = 0 Then
+								DeathTimer = temp
+							Else
+								DeathTimer = Min(DeathTimer, temp)
+							EndIf
+						EndIf
+						
+						Injuries = Max(Injuries + GetINIInt2(iniStr, loc, "damage"), 0);*temp
+						Bloodloss = Max(Bloodloss + GetINIInt2(iniStr, loc, "blood loss"), 0);*temp
+						
 						If GetINIInt2(iniStr, loc, "stomachache") Then SCP1025state[3]=1
 						
-						DeathTimer=GetINIInt2(iniStr, loc, "deathtimer")*70
-						
-						BlinkEffect = Float(GetINIString2(iniStr, loc, "blink effect", 1.0))*x2
-						BlinkEffectTimer = Float(GetINIString2(iniStr, loc, "blink effect timer", 1.0))*x2
-						
-						StaminaEffect = Float(GetINIString2(iniStr, loc, "stamina effect", 1.0))*x2
-						StaminaEffectTimer = Float(GetINIString2(iniStr, loc, "stamina effect timer", 1.0))*x2
+						;the state of refined drinks is more than 1.0 (fine setting increases it by 1, very fine doubles it)
+						strtemp = GetINIString2(iniStr, loc, "blink effect")
+						If strtemp <> "" Then BlinkEffect = Float(strtemp)^SelectedItem\state
+						strtemp = GetINIString2(iniStr, loc, "blink effect timer")
+						If strtemp <> "" Then BlinkEffectTimer = Float(strtemp)*SelectedItem\state
+						strtemp = GetINIString2(iniStr, loc, "stamina effect")
+						If strtemp <> "" Then StaminaEffect = Float(strtemp)^SelectedItem\state
+						strtemp = GetINIString2(iniStr, loc, "stamina effect timer")
+						If strtemp <> "" Then StaminaEffectTimer = Float(strtemp)*SelectedItem\state
 						
 						strtemp = GetINIString2(iniStr, loc, "refusemessage")
 						If strtemp <> "" Then
@@ -6203,7 +6269,7 @@ Function DrawGUI()
 											DebugLog UserTrackName$(RadioState(0))
 										EndIf
 									EndIf
-								Case 1 ;hälytyskanava
+								Case 1 ;hÃ¤lytyskanava
 									DebugLog RadioState(1) 
 									
 									ResumeChannel(RadioCHN(1))
@@ -6419,7 +6485,7 @@ Function DrawGUI()
 											If RadioCHN(Int(SelectedItem\state2)) <> 0 Then PauseChannel(RadioCHN(Int(SelectedItem\state2)))
 										EndIf
 										SelectedItem\state2 = i-2
-										;jos nykyistä kanavaa ollaan soitettu, laitetaan jatketaan toistoa samasta kohdasta
+										;jos nykyistÃ¤ kanavaa ollaan soitettu, laitetaan jatketaan toistoa samasta kohdasta
 										If RadioCHN(SelectedItem\state2)<>0 Then ResumeChannel(RadioCHN(SelectedItem\state2))
 									EndIf
 								Next
@@ -7038,15 +7104,12 @@ Function DrawGUI()
 				Default
 					;[Block]
 					;check if the item is an inventory-type object
-					If SelectedItem\invSlots>0 Then
-						DoubleClick = 0
-						MouseHit1 = 0
-						MouseDown1 = 0
-						LastMouseHit1 = 0
-						OtherOpen = SelectedItem
-						SelectedItem = Null
-					EndIf
-					
+					DoubleClick = 0
+					MouseHit1 = 0
+					MouseDown1 = 0
+					LastMouseHit1 = 0
+					If SelectedItem\invSlots>0 Then OtherOpen = SelectedItem
+					SelectedItem = Null
 					;[End Block]
 			End Select
 			
@@ -7060,8 +7123,8 @@ Function DrawGUI()
 								If IN2$ = "paper" Or IN2$ = "badge" Or IN2$ = "oldpaper" Or IN2$ = "ticket" Then
 									If a_it\itemtemplate\img<>0
 										If a_it\itemtemplate\img <> SelectedItem\itemtemplate\img
-											FreeImage(a_it\itemtemplate\img)
-											a_it\itemtemplate\img = 0
+											FreeImage(a_it\itemtemplate\img) : a_it\itemtemplate\img = 0
+											Exit
 										EndIf
 									EndIf
 								EndIf
@@ -7548,14 +7611,14 @@ Function DrawMenu()
 						Framelimit% = 19+(CurrFrameLimit*100.0)
 						Color 255,255,0
 						AAText(x + 5 * MenuScale, y + 25 * MenuScale, Framelimit%+" FPS")
+						If MouseOn(x+150*MenuScale,y+30*MenuScale,100*MenuScale+14,20)
+							DrawOptionsTooltip(tx,ty,tw,th,"framelimit",Framelimit)
+						EndIf
 					Else
 						CurrFrameLimit# = 0.0
 						Framelimit = 0
 					EndIf
 					If MouseOn(x+270*MenuScale,y+MenuScale,20*MenuScale,20*MenuScale)
-						DrawOptionsTooltip(tx,ty,tw,th,"framelimit",Framelimit)
-					EndIf
-					If MouseOn(x+150*MenuScale,y+30*MenuScale,100*MenuScale+14,20)
 						DrawOptionsTooltip(tx,ty,tw,th,"framelimit",Framelimit)
 					EndIf
 					
@@ -7585,6 +7648,7 @@ Function DrawMenu()
 						Font3% = AALoadFont("GFX\font\DS-DIGI\DS-Digital.ttf", Int(22 * (GraphicHeight / 1024.0)), 0,0,0)
 						Font4% = AALoadFont("GFX\font\DS-DIGI\DS-Digital.ttf", Int(60 * (GraphicHeight / 1024.0)), 0,0,0)
 						Font5% = AALoadFont("GFX\font\Journal\Journal.ttf", Int(58 * (GraphicHeight / 1024.0)), 0,0,0)
+						Font6% = AALoadFont("GFX\font\cour\Courier New.ttf", Int(20), 0,0,0)
 						ConsoleFont% = AALoadFont("Blitz", Int(22 * (GraphicHeight / 1024.0)), 0,0,0,1)
 						;ReloadAAFont()
 						AATextEnable_Prev% = AATextEnable
@@ -7897,7 +7961,7 @@ Function LoadEntities()
 	FogTexture = LoadTexture_Strict("GFX\fog.jpg", 1)
 	
 	Fog = CreateSprite(ark_blur_cam)
-	ScaleSprite(Fog, Max(GraphicWidth / 1240.0, 1.0), Max(GraphicHeight / 960.0 * 0.8, 0.8))
+	ScaleSprite(Fog, 1.0, Float(GraphicHeight) / Float(GraphicWidth))
 	EntityTexture(Fog, FogTexture)
 	EntityBlend (Fog, 2)
 	EntityOrder Fog, -1000
@@ -7905,7 +7969,7 @@ Function LoadEntities()
 	
 	GasMaskTexture = LoadTexture_Strict("GFX\GasmaskOverlay.jpg", 1)
 	GasMaskOverlay = CreateSprite(ark_blur_cam)
-	ScaleSprite(GasMaskOverlay, Max(GraphicWidth / 1024.0, 1.0), Max(GraphicHeight / 1024.0 * 0.8, 0.8))
+	ScaleSprite(GasMaskOverlay, 1.0, Float(GraphicHeight) / Float(GraphicWidth))
 	EntityTexture(GasMaskOverlay, GasMaskTexture)
 	EntityBlend (GasMaskOverlay, 2)
 	EntityFX(GasMaskOverlay, 1)
@@ -7915,7 +7979,7 @@ Function LoadEntities()
 	
 	InfectTexture = LoadTexture_Strict("GFX\InfectOverlay.jpg", 1)
 	InfectOverlay = CreateSprite(ark_blur_cam)
-	ScaleSprite(InfectOverlay, Max(GraphicWidth / 1024.0, 1.0), Max(GraphicHeight / 1024.0 * 0.8, 0.8))
+	ScaleSprite(InfectOverlay, 1.0, Float(GraphicHeight) / Float(GraphicWidth))
 	EntityTexture(InfectOverlay, InfectTexture)
 	EntityBlend (InfectOverlay, 3)
 	EntityFX(InfectOverlay, 1)
@@ -7926,7 +7990,7 @@ Function LoadEntities()
 	
 	NVTexture = LoadTexture_Strict("GFX\NightVisionOverlay.jpg", 1)
 	NVOverlay = CreateSprite(ark_blur_cam)
-	ScaleSprite(NVOverlay, Max(GraphicWidth / 1024.0, 1.0), Max(GraphicHeight / 1024.0 * 0.8, 0.8))
+	ScaleSprite(NVOverlay, 1.0, Float(GraphicHeight) / Float(GraphicWidth))
 	EntityTexture(NVOverlay, NVTexture)
 	EntityBlend (NVOverlay, 2)
 	EntityFX(NVOverlay, 1)
@@ -7934,7 +7998,7 @@ Function LoadEntities()
 	MoveEntity(NVOverlay, 0, 0, 1.0)
 	HideEntity(NVOverlay)
 	NVBlink = CreateSprite(ark_blur_cam)
-	ScaleSprite(NVBlink, Max(GraphicWidth / 1024.0, 1.0), Max(GraphicHeight / 1024.0 * 0.8, 0.8))
+	ScaleSprite(NVBlink, 1.0, Float(GraphicHeight) / Float(GraphicWidth))
 	EntityColor(NVBlink,0,0,0)
 	EntityFX(NVBlink, 1)
 	EntityOrder NVBlink, -1005
@@ -7951,7 +8015,7 @@ Function LoadEntities()
 	SetBuffer BackBuffer()
 	
 	Dark = CreateSprite(Camera)
-	ScaleSprite(Dark, Max(GraphicWidth / 1240.0, 1.0), Max(GraphicHeight / 960.0 * 0.8, 0.8))
+	ScaleSprite(Dark, 1.0, Float(GraphicHeight) / Float(GraphicWidth))
 	EntityTexture(Dark, DarkTexture)
 	EntityBlend (Dark, 1)
 	EntityOrder Dark, -1002
@@ -7968,7 +8032,7 @@ Function LoadEntities()
 	TeslaTexture = LoadTexture_Strict("GFX\map\tesla.jpg", 1+2)
 	
 	Light = CreateSprite(Camera)
-	ScaleSprite(Light, Max(GraphicWidth / 1240.0, 1.0), Max(GraphicHeight / 960.0 * 0.8, 0.8))
+	ScaleSprite(Light, 1.0, Float(GraphicHeight) / Float(GraphicWidth))
 	EntityTexture(Light, LightTexture)
 	EntityBlend (Light, 1)
 	EntityOrder Light, -1002
@@ -8127,7 +8191,7 @@ Function LoadEntities()
 	Next
 	
 	OldAiPics(0) = LoadTexture_Strict("GFX\AIface.jpg")
-	OldAiPics(1) = LoadTexture_Strict("GFX\AIface2.jpg")	
+	OldAiPics(1) = LoadTexture_Strict("GFX\AIface2.jpg")
 	
 	DrawLoading(20)
 	
@@ -8138,6 +8202,7 @@ Function LoadEntities()
 	Monitor = LoadMesh_Strict("GFX\map\monitor.b3d")
 	HideEntity Monitor
 	MonitorTexture = LoadTexture_Strict("GFX\monitortexture.jpg")
+	;MonitorRec = LoadTexture_Strict("GFX\monitortexture2_hd.png")
 	
 	CamBaseOBJ = LoadMesh_Strict("GFX\map\cambase.x")
 	HideEntity(CamBaseOBJ)
@@ -8385,8 +8450,9 @@ Function InitNewGame()
 	
 	AccessCode = 0
 	For i = 0 To 3
-		AccessCode = AccessCode + Rand(1,9)*(10^i)
-	Next	
+		AccessCode = AccessCode + (Rand(1,9)*(10^i))
+	Next
+	If AccessCode = HARPCODE Then AccessCode = AccessCode + 1
 	
 	If SelectedMap = "" Then
 		CreateMap()
@@ -8427,18 +8493,22 @@ Function InitNewGame()
 	
 	For r.Rooms = Each Rooms
 		For i = 0 To MaxRoomLights
-			If r\Lights[i]<>0 Then EntityParent(r\Lights[i],0)
+			If r\Lights[i]<>0 Then
+				EntityParent(r\Lights[i],0)
+			Else
+				Exit
+			EndIf
 		Next
 		
 		If (Not r\RoomTemplate\DisableDecals) Then
 			If Rand(4) = 1 Then
-				de.Decals = CreateDecal(Rand(2, 3), EntityX(r\obj)+Rnd(- 2,2), 0.003, EntityZ(r\obj)+Rnd(-2,2), 90, Rand(360), 0)
+				de.Decals = CreateDecal(Rand(DECAL_BLOOD_1, DECAL_BLOOD_2), EntityX(r\obj)+Rnd(- 2,2), 0.003, EntityZ(r\obj)+Rnd(-2,2), 90, Rand(360), 0)
 				de\Size = Rnd(0.1, 0.4) : ScaleSprite(de\obj, de\Size, de\Size)
 				EntityAlpha(de\obj, Rnd(0.85, 0.95))
 			EndIf
 			
 			If Rand(4) = 1 Then
-				de.Decals = CreateDecal(0, EntityX(r\obj)+Rnd(- 2,2), 0.003, EntityZ(r\obj)+Rnd(-2,2), 90, Rand(360), 0)
+				de.Decals = CreateDecal(DECAL_GLITCH_1, EntityX(r\obj)+Rnd(- 2,2), 0.003, EntityZ(r\obj)+Rnd(-2,2), 90, Rand(360), 0)
 				de\Size = Rnd(0.5, 0.7) : EntityAlpha(de\obj, 0.7) : de\ID = 1 : ScaleSprite(de\obj, de\Size, de\Size)
 				EntityAlpha(de\obj, Rnd(0.7, 0.85))
 			EndIf
@@ -8480,6 +8550,11 @@ Function InitNewGame()
 	Local tw.TempWayPoints
 	For tw.TempWayPoints = Each TempWayPoints
 		Delete tw
+	Next
+	
+	Local ts.TempScreens
+	For ts.TempScreens = Each TempScreens
+		Delete ts
 	Next
 	
 	TurnEntity(Collider, 0, Rand(160, 200), 0)
@@ -8577,6 +8652,16 @@ Function InitLoadGame()
 		If rt\obj <> 0 Then FreeEntity(rt\obj) : rt\obj = 0
 	Next
 	
+	Local tw.TempWayPoints
+	For tw.TempWayPoints = Each TempWayPoints
+		Delete tw
+	Next
+	
+	Local ts.TempScreens
+	For ts.TempScreens = Each TempScreens
+		Delete ts
+	Next
+	
 	DropSpeed = 0.0
 	
 	For e.Events = Each Events
@@ -8585,13 +8670,8 @@ Function InitLoadGame()
 			If e\EventState = 2
 				;[Block]
 				DrawLoading(91)
-				e\room\Objects[0] = CreatePlane()
-				Local planetex% = LoadTexture_Strict("GFX\map\dimension1499\grit3.jpg")
-				EntityTexture e\room\Objects[0],planetex%
-				FreeTexture planetex%
-				PositionEntity e\room\Objects[0],0,EntityY(e\room\obj),0
-				EntityType e\room\Objects[0],HIT_MAP
-				;EntityParent e\room\Objects[0],e\room\obj
+				e\room\Objects[0] = LoadMesh_Strict("GFX\map\dimension1499\1499plane.b3d")
+				HideEntity(e\room\Objects[0])
 				DrawLoading(92)
 				NTF_1499Sky = sky_CreateSky("GFX\map\sky\1499sky")
 				DrawLoading(93)
@@ -8606,7 +8686,8 @@ Function InitLoadGame()
 				z# = EntityZ(e\room\obj)
 				Local ch.Chunk
 				For i = -2 To 2 Step 2
-					ch = CreateChunk(-1,x#*(i*2.5),EntityY(e\room\obj),z#)
+					ch = CreateChunk(-1,x#*(i*2.5),EntityY(e\room\obj),z#,True)
+					ch = CreateChunk(-1,x#*(i*2.5),EntityY(e\room\obj),z#-40,True)
 				Next
 				DrawLoading(98)
 				UpdateChunks(e\room,15,False)
@@ -9025,14 +9106,14 @@ Function PauseSounds()
 	For e.events = Each Events
 		If e\soundchn <> 0 Then
 			If (Not e\soundchn_isstream)
-				If ChannelPlaying(e\soundchn) Then PauseChannel(e\soundchn)
+				PauseChannel(e\soundchn)
 			Else
 				SetStreamPaused_Strict(e\soundchn,True)
 			EndIf
 		EndIf
 		If e\soundchn2 <> 0 Then
 			If (Not e\soundchn2_isstream)
-				If ChannelPlaying(e\soundchn2) Then PauseChannel(e\soundchn2)
+				PauseChannel(e\soundchn2)
 			Else
 				SetStreamPaused_Strict(e\soundchn2,True)
 			EndIf
@@ -9042,42 +9123,46 @@ Function PauseSounds()
 	For n.npcs = Each NPCs
 		If n\soundchn <> 0 Then
 			If (Not n\soundchn_isstream)
-				If ChannelPlaying(n\soundchn) Then PauseChannel(n\soundchn)
+				PauseChannel(n\soundchn)
 			Else
-				If n\soundchn_isstream=True
-					SetStreamPaused_Strict(n\soundchn,True)
-				EndIf
+				SetStreamPaused_Strict(n\soundchn,True)
 			EndIf
 		EndIf
 		If n\soundchn2 <> 0 Then
 			If (Not n\soundchn2_isstream)
-				If ChannelPlaying(n\soundchn2) Then PauseChannel(n\soundchn2)
+				PauseChannel(n\soundchn2)
 			Else
-				If n\soundchn2_isstream=True
-					SetStreamPaused_Strict(n\soundchn2,True)
-				EndIf
+				SetStreamPaused_Strict(n\soundchn2,True)
 			EndIf
 		EndIf
 	Next	
 	
 	For d.doors = Each Doors
 		If d\soundchn <> 0 Then
-			If ChannelPlaying(d\soundchn) Then PauseChannel(d\soundchn)
+			PauseChannel(d\soundchn)
 		EndIf
 	Next
 	
 	For dem.DevilEmitters = Each DevilEmitters
 		If dem\soundchn <> 0 Then
-			If ChannelPlaying(dem\soundchn) Then PauseChannel(dem\soundchn)
+			PauseChannel(dem\soundchn)
 		EndIf
 	Next
 	
 	If AmbientSFXCHN <> 0 Then
-		If ChannelPlaying(AmbientSFXCHN) Then PauseChannel(AmbientSFXCHN)
+		PauseChannel(AmbientSFXCHN)
 	EndIf
 	
 	If BreathCHN <> 0 Then
-		If ChannelPlaying(BreathCHN) Then PauseChannel(BreathCHN)
+		PauseChannel(BreathCHN)
+	EndIf
+	
+	If CoughCHN <> 0 Then
+		PauseChannel(CoughCHN)
+	EndIf
+	
+	If VomitCHN <> 0 Then
+		PauseChannel(VomitCHN)
 	EndIf
 	
 	If IntercomStreamCHN <> 0
@@ -9089,14 +9174,14 @@ Function ResumeSounds()
 	For e.events = Each Events
 		If e\soundchn <> 0 Then
 			If (Not e\soundchn_isstream)
-				If ChannelPlaying(e\soundchn) Then ResumeChannel(e\soundchn)
+				ResumeChannel(e\soundchn)
 			Else
 				SetStreamPaused_Strict(e\soundchn,False)
 			EndIf
 		EndIf
 		If e\soundchn2 <> 0 Then
 			If (Not e\soundchn2_isstream)
-				If ChannelPlaying(e\soundchn2) Then ResumeChannel(e\soundchn2)
+				ResumeChannel(e\soundchn2)
 			Else
 				SetStreamPaused_Strict(e\soundchn2,False)
 			EndIf
@@ -9106,42 +9191,46 @@ Function ResumeSounds()
 	For n.npcs = Each NPCs
 		If n\soundchn <> 0 Then
 			If (Not n\soundchn_isstream)
-				If ChannelPlaying(n\soundchn) Then ResumeChannel(n\soundchn)
+				ResumeChannel(n\soundchn)
 			Else
-				If n\soundchn_isstream=True
-					SetStreamPaused_Strict(n\soundchn,False)
-				EndIf
+				SetStreamPaused_Strict(n\soundchn,False)
 			EndIf
 		EndIf
 		If n\soundchn2 <> 0 Then
 			If (Not n\soundchn2_isstream)
-				If ChannelPlaying(n\soundchn2) Then ResumeChannel(n\soundchn2)
+				ResumeChannel(n\soundchn2)
 			Else
-				If n\soundchn2_isstream=True
-					SetStreamPaused_Strict(n\soundchn2,False)
-				EndIf
+				SetStreamPaused_Strict(n\soundchn2,False)
 			EndIf
 		EndIf
 	Next	
 	
 	For d.doors = Each Doors
 		If d\soundchn <> 0 Then
-			If ChannelPlaying(d\soundchn) Then ResumeChannel(d\soundchn)
+			ResumeChannel(d\soundchn)
 		EndIf
 	Next
 	
 	For dem.DevilEmitters = Each DevilEmitters
 		If dem\soundchn <> 0 Then
-			If ChannelPlaying(dem\soundchn) Then ResumeChannel(dem\soundchn)
+			ResumeChannel(dem\soundchn)
 		EndIf
 	Next
 	
 	If AmbientSFXCHN <> 0 Then
-		If ChannelPlaying(AmbientSFXCHN) Then ResumeChannel(AmbientSFXCHN)
+		ResumeChannel(AmbientSFXCHN)
 	EndIf	
 	
 	If BreathCHN <> 0 Then
-		If ChannelPlaying(BreathCHN) Then ResumeChannel(BreathCHN)
+		ResumeChannel(BreathCHN)
+	EndIf
+	
+	If CoughCHN <> 0 Then
+		ResumeChannel(CoughCHN)
+	EndIf
+	
+	If VomitCHN <> 0 Then
+		ResumeChannel(VomitCHN)
 	EndIf
 	
 	If IntercomStreamCHN <> 0
@@ -9158,54 +9247,68 @@ Function KillSounds()
 	For e.Events = Each Events
 		If e\SoundCHN <> 0 Then
 			If (Not e\SoundCHN_isStream)
-				If ChannelPlaying(e\SoundCHN) Then StopChannel(e\SoundCHN)
+				StopChannel(e\SoundCHN)
 			Else
-				StopStream_Strict(e\SoundCHN)
+				StopStream_Strict(e\SoundCHN) : e\SoundCHN_isStream = False
 			EndIf
+			e\SoundCHN = 0
 		EndIf
 		If e\SoundCHN2 <> 0 Then
 			If (Not e\SoundCHN2_isStream)
-				If ChannelPlaying(e\SoundCHN2) Then StopChannel(e\SoundCHN2)
+				StopChannel(e\SoundCHN2)
 			Else
-				StopStream_Strict(e\SoundCHN2)
+				StopStream_Strict(e\SoundCHN2) : e\SoundCHN2_isStream = False
 			EndIf
+			e\SoundCHN2 = 0
 		EndIf		
 	Next
 	For n.NPCs = Each NPCs
 		If n\SoundChn <> 0 Then
 			If (Not n\SoundChn_IsStream)
-				If ChannelPlaying(n\SoundChn) Then StopChannel(n\SoundChn)
+				StopChannel(n\SoundChn)
 			Else
-				StopStream_Strict(n\SoundChn)
+				StopStream_Strict(n\SoundChn) : n\SoundChn_isStream = False
 			EndIf
+			n\SoundChn = 0
 		EndIf
 		If n\SoundChn2 <> 0 Then
 			If (Not n\SoundChn2_IsStream)
-				If ChannelPlaying(n\SoundChn2) Then StopChannel(n\SoundChn2)
+				StopChannel(n\SoundChn2)
 			Else
-				StopStream_Strict(n\SoundChn2)
+				StopStream_Strict(n\SoundChn2) : n\SoundChn2_isStream = False
 			EndIf
+			n\SoundChn2 = 0
 		EndIf
 	Next	
 	For d.Doors = Each Doors
 		If d\SoundCHN <> 0 Then
-			If ChannelPlaying(d\SoundCHN) Then StopChannel(d\SoundCHN)
+			StopChannel(d\SoundCHN) : d\SoundCHN = 0
 		EndIf
 	Next
 	For dem.DevilEmitters = Each DevilEmitters
 		If dem\SoundCHN <> 0 Then
-			If ChannelPlaying(dem\SoundCHN) Then StopChannel(dem\SoundCHN)
+			StopChannel(dem\SoundCHN) : dem\SoundCHN = 0
 		EndIf
 	Next
 	If AmbientSFXCHN <> 0 Then
-		If ChannelPlaying(AmbientSFXCHN) Then StopChannel(AmbientSFXCHN)
+		StopChannel(AmbientSFXCHN) : AmbientSFXCHN = 0
 	EndIf
 	If BreathCHN <> 0 Then
-		If ChannelPlaying(BreathCHN) Then StopChannel(BreathCHN)
+		StopChannel(BreathCHN) : BreathCHN = 0
 	EndIf
+	If CoughCHN <> 0 Then
+		StopChannel(CoughCHN) : CoughCHN = 0
+	EndIf
+	If VomitCHN <> 0 Then
+		StopChannel(VomitCHN) : VomitCHN = 0
+	EndIf
+	For i = 0 To 6
+		If RadioCHN(i) <> 0 Then
+			StopChannel(RadioCHN(i)) : RadioCHN(i) = 0
+		EndIf
+	Next
 	If IntercomStreamCHN <> 0
-		StopStream_Strict(IntercomStreamCHN)
-		IntercomStreamCHN = 0
+		StopStream_Strict(IntercomStreamCHN) : IntercomStreamCHN = 0
 	EndIf
 	If EnableSFXRelease
 		For snd.Sound = Each Sound
@@ -9220,7 +9323,7 @@ Function KillSounds()
 	For snd.Sound = Each Sound
 		For i = 0 To 31
 			If snd\channels[i]<>0 Then
-				StopChannel snd\channels[i]
+				StopChannel snd\channels[i] : snd\channels[i] = 0
 			EndIf
 		Next
 	Next
@@ -9287,48 +9390,56 @@ Function GetStepSound(entity%)
 End Function
 
 Function UpdateSoundOrigin2(Chn%, cam%, entity%, range# = 10, volume# = 1.0)
-	range# = Max(range,1.0)
-	
-	If volume>0 Then
-		
-		Local dist# = EntityDistance(cam, entity) / range#
-		If 1 - dist# > 0 And 1 - dist# < 1 Then
+	If Chn <> 0 Then
+		If ChannelPlaying(Chn) Then
+			range# = Max(range,1.0)
 			
-			Local panvalue# = Sin(-DeltaYaw(cam,entity))
-			
-			ChannelVolume(Chn, volume# * (1 - dist#))
-			ChannelPan(Chn, panvalue)
+			If volume>0 Then
+				
+				Local dist# = EntityDistance(cam, entity) / range#
+				If 1 - dist# > 0 And 1 - dist# < 1 Then
+					
+					Local panvalue# = Sin(-DeltaYaw(cam,entity))
+					
+					ChannelVolume(Chn, volume# * (1 - dist#))
+					ChannelPan(Chn, panvalue)
+				Else
+					ChannelVolume (Chn, 0)
+				EndIf
+			Else
+				ChannelVolume (Chn, 0)
+			EndIf
 		EndIf
-	Else
-		If Chn <> 0 Then
-			ChannelVolume (Chn, 0)
-		EndIf 
 	EndIf
 End Function
 
 Function UpdateSoundOrigin(Chn%, cam%, entity%, range# = 10, volume# = 1.0)
-	range# = Max(range,1.0)
-	
-	If volume>0 Then
-		
-		Local dist# = EntityDistance(cam, entity) / range#
-		If 1 - dist# > 0 And 1 - dist# < 1 Then
+	If Chn <> 0 Then
+		If ChannelPlaying(Chn) Then
+			range# = Max(range,1.0)
 			
-			Local panvalue# = Sin(-DeltaYaw(cam,entity))
-			
-			ChannelVolume(Chn, volume# * (1 - dist#)*SFXVolume#)
-			ChannelPan(Chn, panvalue)
+			If volume>0 Then
+				
+				Local dist# = EntityDistance(cam, entity) / range#
+				If 1 - dist# > 0 And 1 - dist# < 1 Then
+					
+					Local panvalue# = Sin(-DeltaYaw(cam,entity))
+					
+					ChannelVolume(Chn, volume# * (1 - dist#)*SFXVolume#)
+					ChannelPan(Chn, panvalue)
+				Else
+					ChannelVolume (Chn, 0)
+				EndIf
+			Else
+				ChannelVolume (Chn, 0)
+			EndIf
 		EndIf
-	Else
-		If Chn <> 0 Then
-			ChannelVolume (Chn, 0)
-		EndIf 
 	EndIf
 End Function
 ;--------------------------------------- random -------------------------------------------------------
 
 Function f2s$(n#, count%)
-	Return Left(n, Len(Int(n))+count+1)
+	Return Left(n, Len(Int(Str(n)))+count+1)
 End Function
 
 Function AnimateNPC(n.NPCs, start#, quit#, speed#, loop=True)
@@ -9415,614 +9526,627 @@ End Function
 
 
 Function Use914(item.Items, setting$, x#, y#, z#)
-	
-	RefinedItems = RefinedItems+1
-	
-	Local it2.Items
-	Select item\itemtemplate\name
-		Case "Gas Mask", "Heavy Gas Mask"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
-					RemoveItem(item)
-				Case "1:1"
-					PositionEntity(item\collider, x, y, z)
-					ResetEntity(item\collider)
-				Case "fine", "very fine"
-					it2 = CreateItem("Gas Mask", "supergasmask", x, y, z)
-					RemoveItem(item)
-			End Select
-		Case "SCP-1499"
-				Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
-					RemoveItem(item)
-				Case "1:1"
-					it2 = CreateItem("Gas Mask", "gasmask", x, y, z)
-					RemoveItem(item)
-				Case "fine"
-					it2 = CreateItem("SCP-1499", "super1499", x, y, z)
-					RemoveItem(item)
-				Case "very fine"
-					n.NPCs = CreateNPC(NPCtype1499,x,y,z)
-					n\State = 1
-					n\Sound = LoadSound_Strict("SFX\SCP\1499\Triggered.ogg")
-					n\SoundChn = PlaySound2(n\Sound, Camera, n\Collider,20.0)
-					n\State3 = 1
-					RemoveItem(item)
-			End Select
-		Case "Ballistic Vest"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
-					RemoveItem(item)
-				Case "1:1"
-					PositionEntity(item\collider, x, y, z)
-					ResetEntity(item\collider)
-				Case "fine"
-					it2 = CreateItem("Heavy Ballistic Vest", "finevest", x, y, z)
-					RemoveItem(item)
-				Case "very fine"
-					it2 = CreateItem("Bulky Ballistic Vest", "veryfinevest", x, y, z)
-					RemoveItem(item)
-			End Select
-		Case "Clipboard"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(7, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
-					For i% = 0 To 19
-						If item\SecondInv[i]<>Null Then RemoveItem(item\SecondInv[i])
-						item\SecondInv[i]=Null
-					Next
-					RemoveItem(item)
-				Case "1:1"
-					PositionEntity(item\collider, x, y, z)
-					ResetEntity(item\collider)
-				Case "fine"
-					item\invSlots = Max(item\state2,15)
-					PositionEntity(item\collider, x, y, z)
-					ResetEntity(item\collider)
-				Case "very fine"
-					item\invSlots = Max(item\state2,20)
-					PositionEntity(item\collider, x, y, z)
-					ResetEntity(item\collider)
-			End Select
-		Case "Cowbell"
-			Select setting
-				Case "rough","coarse"
-					d.Decals = CreateDecal(0, x, 8*RoomScale+0.010, z, 90, Rand(360), 0)
-					d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
-					RemoveItem(item)
-				Case "1:1","fine","very fine"
-					PositionEntity(item\collider, x, y, z)
-					ResetEntity(item\collider)
-			End Select
-		Case "Night Vision Goggles"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
-					RemoveItem(item)
-				Case "1:1"
-					PositionEntity(item\collider, x, y, z)
-					ResetEntity(item\collider)
-				Case "fine"
-					it2 = CreateItem("Night Vision Goggles", "finenvgoggles", x, y, z)
-					RemoveItem(item)
-				Case "very fine"
-					it2 = CreateItem("Night Vision Goggles", "supernv", x, y, z)
-					it2\state = 1000
-					RemoveItem(item)
-			End Select
-		Case "Metal Panel", "SCP-148 Ingot"
-			Select setting
-				Case "rough", "coarse"
-					it2 = CreateItem("SCP-148 Ingot", "scp148ingot", x, y, z)
-					RemoveItem(item)
-				Case "1:1", "fine", "very fine"
-					it2 = Null
-					For it.Items = Each Items
-						If it<>item And it\collider <> 0 And it\Picked = False Then
-							If Distance(EntityX(it\collider,True), EntityZ(it\collider,True), EntityX(item\collider, True), EntityZ(item\collider, True)) < (180.0 * RoomScale) Then
-								it2 = it
-								Exit
-							ElseIf Distance(EntityX(it\collider,True), EntityZ(it\collider,True), x,z) < (180.0 * RoomScale)
-								it2 = it
-								Exit
-							End If
+
+RefinedItems = RefinedItems+1
+
+Local it2.Items
+Select item\itemtemplate\name
+	Case "Gas Mask", "Heavy Gas Mask"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
+				RemoveItem(item)
+			Case "1:1"
+				PositionEntity(item\collider, x, y, z)
+				ResetEntity(item\collider)
+			Case "fine", "very fine"
+				it2 = CreateItem("Gas Mask", "supergasmask", x, y, z)
+				RemoveItem(item)
+		End Select
+	Case "SCP-1499"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
+				RemoveItem(item)
+			Case "1:1"
+				it2 = CreateItem("Gas Mask", "gasmask", x, y, z)
+				RemoveItem(item)
+			Case "fine"
+				it2 = CreateItem("SCP-1499", "super1499", x, y, z)
+				RemoveItem(item)
+			Case "very fine"
+				n.NPCs = CreateNPC(NPCtype1499,x,y,z)
+				n\State = 1
+				n\Sound = LoadSound_Strict("SFX\SCP\1499\Triggered.ogg")
+				n\SoundChn = PlaySound2(n\Sound, Camera, n\Collider,20.0)
+				n\State3 = 1
+				RemoveItem(item)
+		End Select
+	Case "Ballistic Vest"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
+				RemoveItem(item)
+			Case "1:1"
+				PositionEntity(item\collider, x, y, z)
+				ResetEntity(item\collider)
+			Case "fine"
+				it2 = CreateItem("Heavy Ballistic Vest", "finevest", x, y, z)
+				RemoveItem(item)
+			Case "very fine"
+				it2 = CreateItem("Bulky Ballistic Vest", "veryfinevest", x, y, z)
+				RemoveItem(item)
+		End Select
+	Case "Clipboard"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_PAPER_STRIPS, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
+				For i% = 0 To 19
+					If item\SecondInv[i]<>Null Then RemoveItem(item\SecondInv[i])
+					item\SecondInv[i]=Null
+				Next
+				RemoveItem(item)
+			Case "1:1"
+				PositionEntity(item\collider, x, y, z)
+				ResetEntity(item\collider)
+			Case "fine"
+				item\invSlots = Max(item\state2,15)
+				PositionEntity(item\collider, x, y, z)
+				ResetEntity(item\collider)
+			Case "very fine"
+				item\invSlots = Max(item\state2,20)
+				PositionEntity(item\collider, x, y, z)
+				ResetEntity(item\collider)
+		End Select
+	Case "Cowbell"
+		Select setting
+			Case "rough","coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8*RoomScale+0.010, z, 90, Rand(360), 0)
+				d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
+				RemoveItem(item)
+			Case "1:1","fine","very fine"
+				PositionEntity(item\collider, x, y, z)
+				ResetEntity(item\collider)
+		End Select
+	Case "Night Vision Goggles"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
+				RemoveItem(item)
+			Case "1:1"
+				PositionEntity(item\collider, x, y, z)
+				ResetEntity(item\collider)
+			Case "fine"
+				it2 = CreateItem("Night Vision Goggles", "finenvgoggles", x, y, z)
+				RemoveItem(item)
+			Case "very fine"
+				it2 = CreateItem("Night Vision Goggles", "supernv", x, y, z)
+				it2\state = 1000
+				RemoveItem(item)
+		End Select
+	Case "Metal Panel", "SCP-148 Ingot"
+		Select setting
+			Case "rough", "coarse"
+				it2 = CreateItem("SCP-148 Ingot", "scp148ingot", x, y, z)
+				RemoveItem(item)
+			Case "1:1", "fine", "very fine"
+				it2 = Null
+				For it.Items = Each Items
+					If it<>item And it\collider <> 0 And it\Picked = False Then
+						If Distance(EntityX(it\collider,True), EntityZ(it\collider,True), EntityX(item\collider, True), EntityZ(item\collider, True)) < (180.0 * RoomScale) Then
+							it2 = it
+							Exit
+						ElseIf Distance(EntityX(it\collider,True), EntityZ(it\collider,True), x,z) < (180.0 * RoomScale)
+							it2 = it
+							Exit
 						End If
-					Next
-					
-					If it2<>Null Then
-						Select it2\itemtemplate\tempname
-							Case "gasmask", "supergasmask"
-								RemoveItem (it2)
-								RemoveItem (item)
-								
-								it2 = CreateItem("Heavy Gas Mask", "gasmask3", x, y, z)
-							Case "vest"
-								RemoveItem (it2)
-								RemoveItem(item)
-								it2 = CreateItem("Heavy Ballistic Vest", "finevest", x, y, z)
-							Case "hazmatsuit","hazmatsuit2"
-								RemoveItem (it2)
-								RemoveItem(item)
-								it2 = CreateItem("Heavy Hazmat Suit", "hazmatsuit3", x, y, z)
-						End Select
-					Else 
-						If item\itemtemplate\name="SCP-148 Ingot" Then
-							it2 = CreateItem("Metal Panel", "scp148", x, y, z)
+					End If
+				Next
+				
+				If it2<>Null Then
+					Select it2\itemtemplate\tempname
+						Case "gasmask", "supergasmask"
+							RemoveItem (it2)
+							RemoveItem (item)
+							
+							it2 = CreateItem("Heavy Gas Mask", "gasmask3", x, y, z)
+						Case "vest"
+							RemoveItem (it2)
 							RemoveItem(item)
-						Else
-							PositionEntity(item\collider, x, y, z)
-							ResetEntity(item\collider)							
-						EndIf
-					EndIf					
-			End Select
-		Case "Severed Hand", "Black Severed Hand"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(3, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1", "fine", "very fine"
-					If (item\itemtemplate\name = "Severed Hand")
-						it2 = CreateItem("Black Severed Hand", "hand2", x, y, z)
+							it2 = CreateItem("Heavy Ballistic Vest", "finevest", x, y, z)
+						Case "hazmatsuit","hazmatsuit2"
+							RemoveItem (it2)
+							RemoveItem(item)
+							it2 = CreateItem("Heavy Hazmat Suit", "hazmatsuit3", x, y, z)
+					End Select
+				Else 
+					If item\itemtemplate\name="SCP-148 Ingot" Then
+						it2 = CreateItem("Metal Panel", "scp148", x, y, z)
+						RemoveItem(item)
 					Else
-						it2 = CreateItem("Severed Hand", "hand", x, y, z)
+						PositionEntity(item\collider, x, y, z)
+						ResetEntity(item\collider)							
 					EndIf
-			End Select
-			RemoveItem(item)
-		Case "First Aid Kit", "Blue First Aid Kit"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1"
+				EndIf					
+		End Select
+	Case "Severed Hand", "Black Severed Hand"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_BLOOD_2, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1", "fine", "very fine"
+				If (item\itemtemplate\name = "Severed Hand")
+					it2 = CreateItem("Black Severed Hand", "hand2", x, y, z)
+				Else
+					it2 = CreateItem("Severed Hand", "hand", x, y, z)
+				EndIf
+		End Select
+		RemoveItem(item)
+	Case "First Aid Kit", "Blue First Aid Kit"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1"
 				If Rand(2)=1 Then
 					it2 = CreateItem("Blue First Aid Kit", "firstaid2", x, y, z)
 				Else
 				    it2 = CreateItem("First Aid Kit", "firstaid", x, y, z)
 				EndIf
-				Case "fine"
-					it2 = CreateItem("Small First Aid Kit", "finefirstaid", x, y, z)
-				Case "very fine"
-					it2 = CreateItem("Strange Bottle", "veryfinefirstaid", x, y, z)
-			End Select
-			RemoveItem(item)
-		Case "Level 1 Key Card", "Level 2 Key Card", "Level 3 Key Card", "Level 4 Key Card", "Level 5 Key Card", "Key Card"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1"
-					it2 = CreateItem("Playing Card", "misc", x, y, z)
-				Case "fine"
-					Select item\itemtemplate\name
-						Case "Level 1 Key Card"
-							Select SelectedDifficulty\otherFactors
-								Case EASY
+			Case "fine"
+				it2 = CreateItem("Small First Aid Kit", "finefirstaid", x, y, z)
+			Case "very fine"
+				it2 = CreateItem("Strange Bottle", "veryfinefirstaid", x, y, z)
+		End Select
+		RemoveItem(item)
+	Case "Level 1 Key Card", "Level 2 Key Card", "Level 3 Key Card", "Level 4 Key Card", "Level 5 Key Card", "Key Card"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1"
+				it2 = CreateItem("Playing Card", "misc", x, y, z)
+			Case "fine"
+				Select item\itemtemplate\name
+					Case "Level 1 Key Card"
+						Select SelectedDifficulty\otherFactors
+							Case EASY
+								it2 = CreateItem("Level 2 Key Card", "key2", x, y, z)
+							Case NORMAL
+								If Rand(5)=1 Then
+									it2 = CreateItem("Mastercard", "misc", x, y, z)
+								Else
 									it2 = CreateItem("Level 2 Key Card", "key2", x, y, z)
-								Case NORMAL
-									If Rand(5)=1 Then
-										it2 = CreateItem("Mastercard", "misc", x, y, z)
-									Else
-										it2 = CreateItem("Level 2 Key Card", "key2", x, y, z)
-									EndIf
-								Case HARD
-									If Rand(4)=1 Then
-										it2 = CreateItem("Mastercard", "misc", x, y, z)
-									Else
-										it2 = CreateItem("Level 2 Key Card", "key2", x, y, z)
-									EndIf
-							End Select
-						Case "Level 2 Key Card"
-							Select SelectedDifficulty\otherFactors
-								Case EASY
-									it2 = CreateItem("Level 3 Key Card", "key3", x, y, z)
-								Case NORMAL
-									If Rand(4)=1 Then
-										it2 = CreateItem("Mastercard", "misc", x, y, z)
-									Else
-										it2 = CreateItem("Level 3 Key Card", "key3", x, y, z)
-									EndIf
-								Case HARD
-									If Rand(3)=1 Then
-										it2 = CreateItem("Mastercard", "misc", x, y, z)
-									Else
-										it2 = CreateItem("Level 3 Key Card", "key3", x, y, z)
-									EndIf
-							End Select
-						Case "Level 3 Key Card"
-							Select SelectedDifficulty\otherFactors
-								Case EASY
-									If Rand(10)=1 Then
-										it2 = CreateItem("Level 4 Key Card", "key4", x, y, z)
-									Else
-										it2 = CreateItem("Playing Card", "misc", x, y, z)	
-									EndIf
-								Case NORMAL
-									If Rand(15)=1 Then
-										it2 = CreateItem("Level 4 Key Card", "key4", x, y, z)
-									Else
-										it2 = CreateItem("Playing Card", "misc", x, y, z)	
-									EndIf
-								Case HARD
-									If Rand(20)=1 Then
-										it2 = CreateItem("Level 4 Key Card", "key4", x, y, z)
-									Else
-										it2 = CreateItem("Playing Card", "misc", x, y, z)	
-									EndIf
-							End Select
-						Case "Level 4 Key Card"
-							Select SelectedDifficulty\otherFactors
-								Case EASY
-									it2 = CreateItem("Level 5 Key Card", "key5", x, y, z)
-								Case NORMAL
-									If Rand(4)=1 Then
-										it2 = CreateItem("Mastercard", "misc", x, y, z)
-									Else
-										it2 = CreateItem("Level 5 Key Card", "key5", x, y, z)
-									EndIf
-								Case HARD
-									If Rand(3)=1 Then
-										it2 = CreateItem("Mastercard", "misc", x, y, z)
-									Else
-										it2 = CreateItem("Level 5 Key Card", "key5", x, y, z)
-									EndIf
-							End Select
-						Case "Level 5 Key Card"	
-							Local CurrAchvAmount%=0
-							For i = 0 To MAXACHIEVEMENTS-1
-								If Achievements(i)=True
-									CurrAchvAmount=CurrAchvAmount+1
 								EndIf
-							Next
-							
-							DebugLog CurrAchvAmount
-							
-							Select SelectedDifficulty\otherFactors
-								Case EASY
-									If Rand(0,((MAXACHIEVEMENTS-1)*3)-((CurrAchvAmount-1)*3))=0
-										it2 = CreateItem("Key Card Omni", "key6", x, y, z)
-									Else
-										it2 = CreateItem("Mastercard", "misc", x, y, z)
-									EndIf
-								Case NORMAL
-									If Rand(0,((MAXACHIEVEMENTS-1)*4)-((CurrAchvAmount-1)*3))=0
-										it2 = CreateItem("Key Card Omni", "key6", x, y, z)
-									Else
-										it2 = CreateItem("Mastercard", "misc", x, y, z)
-									EndIf
-								Case HARD
-									If Rand(0,((MAXACHIEVEMENTS-1)*5)-((CurrAchvAmount-1)*3))=0
-										it2 = CreateItem("Key Card Omni", "key6", x, y, z)
-									Else
-										it2 = CreateItem("Mastercard", "misc", x, y, z)
-									EndIf
-							End Select		
-					End Select
-				Case "very fine"
-					CurrAchvAmount%=0
-					For i = 0 To MAXACHIEVEMENTS-1
-						If Achievements(i)=True
-							CurrAchvAmount=CurrAchvAmount+1
-						EndIf
-					Next
-					
-					DebugLog CurrAchvAmount
-					
-					Select SelectedDifficulty\otherFactors
-						Case EASY
-							If Rand(0,((MAXACHIEVEMENTS-1)*3)-((CurrAchvAmount-1)*3))=0
-								it2 = CreateItem("Key Card Omni", "key6", x, y, z)
-							Else
-								it2 = CreateItem("Mastercard", "misc", x, y, z)
+							Case HARD
+								If Rand(4)=1 Then
+									it2 = CreateItem("Mastercard", "misc", x, y, z)
+								Else
+									it2 = CreateItem("Level 2 Key Card", "key2", x, y, z)
+								EndIf
+						End Select
+					Case "Level 2 Key Card"
+						Select SelectedDifficulty\otherFactors
+							Case EASY
+								it2 = CreateItem("Level 3 Key Card", "key3", x, y, z)
+							Case NORMAL
+								If Rand(4)=1 Then
+									it2 = CreateItem("Mastercard", "misc", x, y, z)
+								Else
+									it2 = CreateItem("Level 3 Key Card", "key3", x, y, z)
+								EndIf
+							Case HARD
+								If Rand(3)=1 Then
+									it2 = CreateItem("Mastercard", "misc", x, y, z)
+								Else
+									it2 = CreateItem("Level 3 Key Card", "key3", x, y, z)
+								EndIf
+						End Select
+					Case "Level 3 Key Card"
+						Select SelectedDifficulty\otherFactors
+							Case EASY
+								If Rand(10)=1 Then
+									it2 = CreateItem("Level 4 Key Card", "key4", x, y, z)
+								Else
+									it2 = CreateItem("Playing Card", "misc", x, y, z)	
+								EndIf
+							Case NORMAL
+								If Rand(15)=1 Then
+									it2 = CreateItem("Level 4 Key Card", "key4", x, y, z)
+								Else
+									it2 = CreateItem("Playing Card", "misc", x, y, z)	
+								EndIf
+							Case HARD
+								If Rand(20)=1 Then
+									it2 = CreateItem("Level 4 Key Card", "key4", x, y, z)
+								Else
+									it2 = CreateItem("Playing Card", "misc", x, y, z)	
+								EndIf
+						End Select
+					Case "Level 4 Key Card"
+						Select SelectedDifficulty\otherFactors
+							Case EASY
+								it2 = CreateItem("Level 5 Key Card", "key5", x, y, z)
+							Case NORMAL
+								If Rand(4)=1 Then
+									it2 = CreateItem("Mastercard", "misc", x, y, z)
+								Else
+									it2 = CreateItem("Level 5 Key Card", "key5", x, y, z)
+								EndIf
+							Case HARD
+								If Rand(3)=1 Then
+									it2 = CreateItem("Mastercard", "misc", x, y, z)
+								Else
+									it2 = CreateItem("Level 5 Key Card", "key5", x, y, z)
+								EndIf
+						End Select
+					Case "Level 5 Key Card"	
+						Local CurrAchvAmount%=0
+						For i = 0 To MAXACHIEVEMENTS-1
+							If Achievements(i)=True
+								CurrAchvAmount=CurrAchvAmount+1
 							EndIf
-						Case NORMAL
-							If Rand(0,((MAXACHIEVEMENTS-1)*4)-((CurrAchvAmount-1)*3))=0
-								it2 = CreateItem("Key Card Omni", "key6", x, y, z)
-							Else
-								it2 = CreateItem("Mastercard", "misc", x, y, z)
-							EndIf
-						Case HARD
-							If Rand(0,((MAXACHIEVEMENTS-1)*5)-((CurrAchvAmount-1)*3))=0
-								it2 = CreateItem("Key Card Omni", "key6", x, y, z)
-							Else
-								it2 = CreateItem("Mastercard", "misc", x, y, z)
-							EndIf
-					End Select
-			End Select
-			
-			RemoveItem(item)
-		Case "Key Card Omni"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1"
-					If Rand(2)=1 Then
-						it2 = CreateItem("Mastercard", "misc", x, y, z)
-					Else
-						it2 = CreateItem("Playing Card", "misc", x, y, z)			
-					EndIf	
-				Case "fine", "very fine"
-					it2 = CreateItem("Key Card Omni", "key6", x, y, z)
-			End Select			
-			
-			RemoveItem(item)
-		Case "Playing Card", "Coin", "Quarter"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1"
-					it2 = CreateItem("Level 1 Key Card", "key1", x, y, z)	
-			    Case "fine", "very fine"
-					it2 = CreateItem("Level 2 Key Card", "key2", x, y, z)
-			End Select
-			RemoveItem(item)
-		Case "Mastercard"
-			Select setting
-				Case "rough"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-					d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "coarse"
-					it2 = CreateItem("Quarter", "25ct", x, y, z)
-					Local it3.Items,it4.Items,it5.Items
-					it3 = CreateItem("Quarter", "25ct", x, y, z)
-					it4 = CreateItem("Quarter", "25ct", x, y, z)
-					it5 = CreateItem("Quarter", "25ct", x, y, z)
-					EntityType (it3\collider, HIT_ITEM)
-					EntityType (it4\collider, HIT_ITEM)
-					EntityType (it5\collider, HIT_ITEM)
-				Case "1:1"
-					it2 = CreateItem("Level 1 Key Card", "key1", x, y, z)	
-			    Case "fine", "very fine"
-					it2 = CreateItem("Level 2 Key Card", "key2", x, y, z)
-			End Select
-			RemoveItem(item)
-		Case "S-NAV 300 Navigator", "S-NAV 310 Navigator", "S-NAV Navigator", "S-NAV Navigator Ultimate"
-			Select setting
-				Case "rough", "coarse"
-					it2 = CreateItem("Electronical components", "misc", x, y, z)
-				Case "1:1"
-					it2 = CreateItem("S-NAV Navigator", "nav", x, y, z)
-					it2\state = 100
-				Case "fine"
-					it2 = CreateItem("S-NAV 310 Navigator", "nav", x, y, z)
-					it2\state = 100
-				Case "very fine"
-					it2 = CreateItem("S-NAV Navigator Ultimate", "nav", x, y, z)
-					it2\state = 101
-			End Select
-			
-			RemoveItem(item)
-		Case "Radio Transceiver"
-			Select setting
-				Case "rough", "coarse"
-					it2 = CreateItem("Electronical components", "misc", x, y, z)
-				Case "1:1"
-					it2 = CreateItem("Radio Transceiver", "18vradio", x, y, z)
-					it2\state = 100
-				Case "fine"
-					it2 = CreateItem("Radio Transceiver", "fineradio", x, y, z)
-					it2\state = 101
-				Case "very fine"
-					it2 = CreateItem("Radio Transceiver", "veryfineradio", x, y, z)
-					it2\state = 101
-			End Select
-			
-			RemoveItem(item)
-		Case "SCP-513"
-			Select setting
-				Case "rough", "coarse"
-					PlaySound_Strict LoadTempSound("SFX\SCP\513\914Refine.ogg")
-					For n.npcs = Each NPCs
-						If n\npctype = NPCtype5131 Then RemoveNPC(n)
-					Next
-					d.Decals = CreateDecal(0, x, 8*RoomScale+0.010, z, 90, Rand(360), 0)
-					d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1", "fine", "very fine"
-					it2 = CreateItem("SCP-513", "scp513", x, y, z)
-					
-			End Select
-			
-			RemoveItem(item)
-		Case "Some SCP-420-J", "Cigarette"
-			Select setting
-				Case "rough", "coarse"			
-					d.Decals = CreateDecal(0, x, 8*RoomScale+0.010, z, 90, Rand(360), 0)
-					d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1"
-					it2 = CreateItem("Cigarette", "cigarette", x + 1.5, y + 0.5, z + 1.0)
-				Case "fine"
-					it2 = CreateItem("Joint", "420s", x + 1.5, y + 0.5, z + 1.0)
-				Case "very fine"
-					it2 = CreateItem("Smelly Joint", "420s", x + 1.5, y + 0.5, z + 1.0)
-			End Select
-			
-			RemoveItem(item)
-		Case "9V Battery", "18V Battery", "Strange Battery"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.010, z, 90, Rand(360), 0)
-					d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1"
-					it2 = CreateItem("18V Battery", "18vbat", x, y, z)
-				Case "fine"
-					it2 = CreateItem("Strange Battery", "killbat", x, y, z)
-				Case "very fine"
-					it2 = CreateItem("Strange Battery", "killbat", x, y, z)
-			End Select
-			
-			RemoveItem(item)
-		Case "ReVision Eyedrops", "RedVision Eyedrops", "Eyedrops"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.010, z, 90, Rand(360), 0)
-					d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1"
-					it2 = CreateItem("RedVision Eyedrops", "eyedrops", x,y,z)
-				Case "fine"
-					it2 = CreateItem("Eyedrops", "fineeyedrops", x,y,z)
-				Case "very fine"
-					it2 = CreateItem("Eyedrops", "supereyedrops", x,y,z)
-			End Select
-			
-			RemoveItem(item)		
-		Case "Hazmat Suit"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.010, z, 90, Rand(360), 0)
-					d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1"
-					it2 = CreateItem("Hazmat Suit", "hazmatsuit", x,y,z)
-				Case "fine"
-					it2 = CreateItem("Hazmat Suit", "hazmatsuit2", x,y,z)
-				Case "very fine"
-					it2 = CreateItem("Hazmat Suit", "hazmatsuit2", x,y,z)
-			End Select
-			
-			RemoveItem(item)
-			
-		Case "Syringe"
-			Select item\itemtemplate\tempname
-				Case "syringe"
-					Select setting
-						Case "rough", "coarse"
-							d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-							d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
-						Case "1:1"
-							it2 = CreateItem("Small First Aid Kit", "finefirstaid", x, y, z)	
-						Case "fine"
-							it2 = CreateItem("Syringe", "finesyringe", x, y, z)
-						Case "very fine"
-							it2 = CreateItem("Syringe", "veryfinesyringe", x, y, z)
-					End Select
-					
-				Case "finesyringe"
-					Select setting
-						Case "rough"
-							d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-							d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
-						Case "coarse"
-							it2 = CreateItem("First Aid Kit", "firstaid", x, y, z)
-						Case "1:1"
-							it2 = CreateItem("Blue First Aid Kit", "firstaid2", x, y, z)	
-						Case "fine", "very fine"
-							it2 = CreateItem("Syringe", "veryfinesyringe", x, y, z)
-					End Select
-					
-				Case "veryfinesyringe"
-					Select setting
-						Case "rough", "coarse", "1:1", "fine"
-							it2 = CreateItem("Electronical components", "misc", x, y, z)	
-						Case "very fine"
-							n.NPCs = CreateNPC(NPCtype008,x,y,z)
-							n\State = 2
-					End Select
-			End Select
-			
-			RemoveItem(item)
-			
-		Case "SCP-500-01", "Upgraded pill", "Pill"
-			Select setting
-				Case "rough", "coarse"
-					d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.010, z, 90, Rand(360), 0)
-					d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
-				Case "1:1"
-					it2 = CreateItem("Pill", "pill", x, y, z)
-					RemoveItem(item)
-				Case "fine"
-					Local no427Spawn% = False
-					For it3.Items = Each Items
-						If it3\itemtemplate\tempname = "scp427" Then
-							no427Spawn = True
-							Exit
-						EndIf
-					Next
-					If (Not no427Spawn) Then
-						it2 = CreateItem("SCP-427", "scp427", x, y, z)
-					Else
-						it2 = CreateItem("Upgraded pill", "scp500death", x, y, z)
+						Next
+						
+						DebugLog CurrAchvAmount
+						
+						Select SelectedDifficulty\otherFactors
+							Case EASY
+								If Rand(0,((MAXACHIEVEMENTS-1)*3)-((CurrAchvAmount-1)*3))=0
+									it2 = CreateItem("Key Card Omni", "key6", x, y, z)
+								Else
+									it2 = CreateItem("Mastercard", "misc", x, y, z)
+								EndIf
+							Case NORMAL
+								If Rand(0,((MAXACHIEVEMENTS-1)*4)-((CurrAchvAmount-1)*3))=0
+									it2 = CreateItem("Key Card Omni", "key6", x, y, z)
+								Else
+									it2 = CreateItem("Mastercard", "misc", x, y, z)
+								EndIf
+							Case HARD
+								If Rand(0,((MAXACHIEVEMENTS-1)*5)-((CurrAchvAmount-1)*3))=0
+									it2 = CreateItem("Key Card Omni", "key6", x, y, z)
+								Else
+									it2 = CreateItem("Mastercard", "misc", x, y, z)
+								EndIf
+						End Select		
+				End Select
+			Case "very fine"
+				CurrAchvAmount%=0
+				For i = 0 To MAXACHIEVEMENTS-1
+					If Achievements(i)=True
+						CurrAchvAmount=CurrAchvAmount+1
 					EndIf
-					RemoveItem(item)
-				Case "very fine"
+				Next
+				
+				DebugLog CurrAchvAmount
+				
+				Select SelectedDifficulty\otherFactors
+					Case EASY
+						If Rand(0,((MAXACHIEVEMENTS-1)*3)-((CurrAchvAmount-1)*3))=0
+							it2 = CreateItem("Key Card Omni", "key6", x, y, z)
+						Else
+							it2 = CreateItem("Mastercard", "misc", x, y, z)
+						EndIf
+					Case NORMAL
+						If Rand(0,((MAXACHIEVEMENTS-1)*4)-((CurrAchvAmount-1)*3))=0
+							it2 = CreateItem("Key Card Omni", "key6", x, y, z)
+						Else
+							it2 = CreateItem("Mastercard", "misc", x, y, z)
+						EndIf
+					Case HARD
+						If Rand(0,((MAXACHIEVEMENTS-1)*5)-((CurrAchvAmount-1)*3))=0
+							it2 = CreateItem("Key Card Omni", "key6", x, y, z)
+						Else
+							it2 = CreateItem("Mastercard", "misc", x, y, z)
+						EndIf
+				End Select
+		End Select
+		
+		RemoveItem(item)
+	Case "Key Card Omni"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1"
+				If Rand(2)=1 Then
+					it2 = CreateItem("Mastercard", "misc", x, y, z)
+				Else
+					it2 = CreateItem("Playing Card", "misc", x, y, z)			
+				EndIf	
+			Case "fine", "very fine"
+				it2 = CreateItem("Key Card Omni", "key6", x, y, z)
+		End Select			
+		
+		RemoveItem(item)
+	Case "Playing Card", "Coin", "Quarter"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1"
+				it2 = CreateItem("Level 1 Key Card", "key1", x, y, z)	
+			Case "fine", "very fine"
+				it2 = CreateItem("Level 2 Key Card", "key2", x, y, z)
+		End Select
+		RemoveItem(item)
+	Case "Mastercard"
+		Select setting
+			Case "rough"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "coarse"
+				it2 = CreateItem("Quarter", "25ct", x, y, z)
+				Local it3.Items,it4.Items,it5.Items
+				it3 = CreateItem("Quarter", "25ct", x, y, z)
+				it4 = CreateItem("Quarter", "25ct", x, y, z)
+				it5 = CreateItem("Quarter", "25ct", x, y, z)
+				EntityType (it3\collider, HIT_ITEM)
+				EntityType (it4\collider, HIT_ITEM)
+				EntityType (it5\collider, HIT_ITEM)
+			Case "1:1"
+				it2 = CreateItem("Level 1 Key Card", "key1", x, y, z)	
+			Case "fine", "very fine"
+				it2 = CreateItem("Level 2 Key Card", "key2", x, y, z)
+		End Select
+		RemoveItem(item)
+	Case "S-NAV 300 Navigator", "S-NAV 310 Navigator", "S-NAV Navigator", "S-NAV Navigator Ultimate"
+		Select setting
+			Case "rough", "coarse"
+				it2 = CreateItem("Electronical components", "misc", x, y, z)
+			Case "1:1"
+				it2 = CreateItem("S-NAV Navigator", "nav", x, y, z)
+				it2\state = 100
+			Case "fine"
+				it2 = CreateItem("S-NAV 310 Navigator", "nav", x, y, z)
+				it2\state = 100
+			Case "very fine"
+				it2 = CreateItem("S-NAV Navigator Ultimate", "nav", x, y, z)
+				it2\state = 101
+		End Select
+		
+		RemoveItem(item)
+	Case "Radio Transceiver"
+		Select setting
+			Case "rough", "coarse"
+				it2 = CreateItem("Electronical components", "misc", x, y, z)
+			Case "1:1"
+				it2 = CreateItem("Radio Transceiver", "18vradio", x, y, z)
+				it2\state = 100
+			Case "fine"
+				it2 = CreateItem("Radio Transceiver", "fineradio", x, y, z)
+				it2\state = 101
+			Case "very fine"
+				it2 = CreateItem("Radio Transceiver", "veryfineradio", x, y, z)
+				it2\state = 101
+		End Select
+		
+		RemoveItem(item)
+	Case "SCP-513"
+		Select setting
+			Case "rough", "coarse"
+				PlaySound_Strict LoadTempSound("SFX\SCP\513\914Refine.ogg")
+				For n.npcs = Each NPCs
+					If n\npctype = NPCtype5131 Then RemoveNPC(n)
+				Next
+				d.Decals = CreateDecal(0, x, 8*RoomScale+0.010, z, 90, Rand(360), 0)
+				d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1", "fine", "very fine"
+				it2 = CreateItem("SCP-513", "scp513", x, y, z)
+				
+		End Select
+		
+		RemoveItem(item)
+	Case "Some SCP-420-J", "Cigarette"
+		Select setting
+			Case "rough", "coarse"			
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8*RoomScale+0.010, z, 90, Rand(360), 0)
+				d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1"
+				it2 = CreateItem("Cigarette", "cigarette", x + 1.5, y + 0.5, z + 1.0)
+			Case "fine"
+				it2 = CreateItem("Joint", "420s", x + 1.5, y + 0.5, z + 1.0)
+			Case "very fine"
+				it2 = CreateItem("Smelly Joint", "420s", x + 1.5, y + 0.5, z + 1.0)
+		End Select
+		
+		RemoveItem(item)
+	Case "9V Battery", "18V Battery", "Strange Battery"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.010, z, 90, Rand(360), 0)
+				d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1"
+				it2 = CreateItem("18V Battery", "18vbat", x, y, z)
+			Case "fine"
+				it2 = CreateItem("Strange Battery", "killbat", x, y, z)
+			Case "very fine"
+				it2 = CreateItem("Strange Battery", "killbat", x, y, z)
+		End Select
+		
+		RemoveItem(item)
+	Case "ReVision Eyedrops", "RedVision Eyedrops", "Eyedrops"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.010, z, 90, Rand(360), 0)
+				d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1"
+				it2 = CreateItem("RedVision Eyedrops", "eyedrops", x,y,z)
+			Case "fine"
+				it2 = CreateItem("Eyedrops", "fineeyedrops", x,y,z)
+			Case "very fine"
+				it2 = CreateItem("Eyedrops", "supereyedrops", x,y,z)
+		End Select
+		
+		RemoveItem(item)		
+	Case "Hazmat Suit"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.010, z, 90, Rand(360), 0)
+				d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1"
+				it2 = CreateItem("Hazmat Suit", "hazmatsuit", x,y,z)
+			Case "fine"
+				it2 = CreateItem("Hazmat Suit", "hazmatsuit2", x,y,z)
+			Case "very fine"
+				it2 = CreateItem("Hazmat Suit", "hazmatsuit2", x,y,z)
+		End Select
+		
+		RemoveItem(item)
+		
+	Case "Syringe"
+		Select item\itemtemplate\tempname
+			Case "syringe"
+				Select setting
+					Case "rough", "coarse"
+						d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+						d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
+					Case "1:1"
+						it2 = CreateItem("Small First Aid Kit", "finefirstaid", x, y, z)	
+					Case "fine"
+						it2 = CreateItem("Syringe", "finesyringe", x, y, z)
+					Case "very fine"
+						it2 = CreateItem("Syringe", "veryfinesyringe", x, y, z)
+				End Select
+				
+			Case "finesyringe"
+				Select setting
+					Case "rough"
+						d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+						d\Size = 0.07 : ScaleSprite(d\obj, d\Size, d\Size)
+					Case "coarse"
+						it2 = CreateItem("First Aid Kit", "firstaid", x, y, z)
+					Case "1:1"
+						it2 = CreateItem("Blue First Aid Kit", "firstaid2", x, y, z)	
+					Case "fine", "very fine"
+						it2 = CreateItem("Syringe", "veryfinesyringe", x, y, z)
+				End Select
+				
+			Case "veryfinesyringe"
+				Select setting
+					Case "rough", "coarse", "1:1", "fine"
+						it2 = CreateItem("Electronical components", "misc", x, y, z)	
+					Case "very fine"
+						n.NPCs = CreateNPC(NPCtype008,x,y,z)
+						n\State = 2
+				End Select
+		End Select
+		
+		RemoveItem(item)
+		
+	Case "SCP-500-01", "Upgraded pill", "Pill"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.010, z, 90, Rand(360), 0)
+				d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1"
+				it2 = CreateItem("Pill", "pill", x, y, z)
+				RemoveItem(item)
+			Case "fine"
+				Local no427Spawn% = False
+				For it3.Items = Each Items
+					If it3\itemtemplate\tempname = "scp427" Then
+						no427Spawn = True
+						Exit
+					EndIf
+				Next
+				If (Not no427Spawn) Then
+					it2 = CreateItem("SCP-427", "scp427", x, y, z)
+				Else
 					it2 = CreateItem("Upgraded pill", "scp500death", x, y, z)
-					RemoveItem(item)
-			End Select
-			
-		Default
-			
-			Select item\itemtemplate\tempname
-				Case "cup"
-					Select setting
-						Case "rough", "coarse"
-							d.Decals = CreateDecal(0, x, 8 * RoomScale + 0.010, z, 90, Rand(360), 0)
-							d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
-						Case "1:1"
-							it2 = CreateItem("cup", "cup", x,y,z)
-							it2\name = item\name
-							it2\r = 255-item\r
-							it2\g = 255-item\g
-							it2\b = 255-item\b
-						Case "fine"
-							it2 = CreateItem("cup", "cup", x,y,z)
-							it2\name = item\name
-							it2\state = 1.0
-							it2\r = Min(item\r*Rnd(0.9,1.1),255)
-							it2\g = Min(item\g*Rnd(0.9,1.1),255)
-							it2\b = Min(item\b*Rnd(0.9,1.1),255)
-						Case "very fine"
-							it2 = CreateItem("cup", "cup", x,y,z)
-							it2\name = item\name
-							it2\state = Max(it2\state*2.0,2.0)	
-							it2\r = Min(item\r*Rnd(0.5,1.5),255)
-							it2\g = Min(item\g*Rnd(0.5,1.5),255)
-							it2\b = Min(item\b*Rnd(0.5,1.5),255)
-							If Rand(5)=1 Then
-								ExplosionTimer = 135
-							EndIf
-					End Select	
-					
-					RemoveItem(item)
-				Case "paper"
-					Select setting
-						Case "rough", "coarse"
-							d.Decals = CreateDecal(7, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
-							d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
-						Case "1:1"
-							Select Rand(6)
-								Case 1
-									it2 = CreateItem("Document SCP-106", "paper", x, y, z)
-								Case 2
-									it2 = CreateItem("Document SCP-079", "paper", x, y, z)
-								Case 3
-									it2 = CreateItem("Document SCP-173", "paper", x, y, z)
-								Case 4
-									it2 = CreateItem("Document SCP-895", "paper", x, y, z)
-								Case 5
-									it2 = CreateItem("Document SCP-682", "paper", x, y, z)
-								Case 6
-									it2 = CreateItem("Document SCP-860", "paper", x, y, z)
-							End Select
-						Case "fine", "very fine"
-							it2 = CreateItem("Origami", "misc", x, y, z)
-					End Select
-					
-					RemoveItem(item)
-				Default
-					PositionEntity(item\collider, x, y, z)
-					ResetEntity(item\collider)	
-			End Select
-			
-	End Select
-	
-	If it2 <> Null Then EntityType (it2\collider, HIT_ITEM)
+				EndIf
+				RemoveItem(item)
+			Case "very fine"
+				it2 = CreateItem("Upgraded pill", "scp500death", x, y, z)
+				RemoveItem(item)
+		End Select
+	Case "SCP-714"
+		Select setting
+			Case "rough", "coarse"
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+				d\Size = 0.2 : ScaleSprite(d\obj, d\Size, d\Size)
+			Case "1:1"
+				it2 = CreateItem("SCP-714", "scp714", x, y, z)
+			Case "fine"
+				it2 = CreateItem("Blue Ring", "super714", x, y, z)
+			Case "very fine"
+				it2 = CreateItem("Strange Ring", "ring", x, y, z)
+		End Select 
+		
+		
+	Default
+		
+		Select item\itemtemplate\tempname
+			Case "cup"
+				Select setting
+					Case "rough", "coarse"
+						d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8 * RoomScale + 0.010, z, 90, Rand(360), 0)
+						d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
+					Case "1:1"
+						it2 = CreateItem("cup", "cup", x,y,z)
+						it2\name = item\name
+						it2\r = 255-item\r
+						it2\g = 255-item\g
+						it2\b = 255-item\b
+					Case "fine"
+						it2 = CreateItem("cup", "cup", x,y,z)
+						it2\name = item\name
+						it2\state = 1.0
+						it2\r = Min(item\r*Rnd(0.9,1.1),255)
+						it2\g = Min(item\g*Rnd(0.9,1.1),255)
+						it2\b = Min(item\b*Rnd(0.9,1.1),255)
+					Case "very fine"
+						it2 = CreateItem("cup", "cup", x,y,z)
+						it2\name = item\name
+						it2\state = Max(it2\state*2.0,2.0)	
+						it2\r = Min(item\r*Rnd(0.5,1.5),255)
+						it2\g = Min(item\g*Rnd(0.5,1.5),255)
+						it2\b = Min(item\b*Rnd(0.5,1.5),255)
+						If Rand(5)=1 Then
+							ExplosionTimer = 135
+						EndIf
+				End Select	
+				
+				RemoveItem(item)
+			Case "paper"
+				Select setting
+					Case "rough", "coarse"
+						d.Decals = CreateDecal(DECAL_PAPER_STRIPS, x, 8 * RoomScale + 0.005, z, 90, Rand(360), 0)
+						d\Size = 0.12 : ScaleSprite(d\obj, d\Size, d\Size)
+					Case "1:1"
+						Select Rand(6)
+							Case 1
+								it2 = CreateItem("Document SCP-106", "paper", x, y, z)
+							Case 2
+								it2 = CreateItem("Document SCP-079", "paper", x, y, z)
+							Case 3
+								it2 = CreateItem("Document SCP-173", "paper", x, y, z)
+							Case 4
+								it2 = CreateItem("Document SCP-895", "paper", x, y, z)
+							Case 5
+								it2 = CreateItem("Document SCP-682", "paper", x, y, z)
+							Case 6
+								it2 = CreateItem("Document SCP-860", "paper", x, y, z)
+						End Select
+					Case "fine", "very fine"
+						it2 = CreateItem("Origami", "misc", x, y, z)
+				End Select
+				
+				RemoveItem(item)
+			Default
+				PositionEntity(item\collider, x, y, z)
+				ResetEntity(item\collider)	
+		End Select
+		
+End Select
+
+If it2 <> Null Then EntityType (it2\collider, HIT_ITEM)
 End Function
 
 Function Use294()
@@ -10038,100 +10162,100 @@ Function Use294()
 	temp = True
 	If PlayerRoom\SoundCHN<>0 Then temp = False
 	
-	AAText x+907, y+185, Input294, True,True
+	AAText x+905, y+185, Right(Input294,13), True,True
 	
 	If temp Then
 		If MouseHit1 Then
 			xtemp = Floor((ScaledMouseX()-x-228) / 35.5)
 			ytemp = Floor((ScaledMouseY()-y-342) / 36.5)
 			
-			If ytemp => 0 And ytemp < 5 Then
-				If xtemp => 0 And xtemp < 10 Then PlaySound_Strict ButtonSFX
-			EndIf
-			
-			strtemp = ""
-			
 			temp = False
 			
-			Select ytemp
-				Case 0
-					strtemp = (xtemp + 1) Mod 10
-				Case 1
-					Select xtemp
+			If ytemp => 0 And ytemp < 5 Then
+				If xtemp => 0 And xtemp < 10 Then
+					PlaySound_Strict ButtonSFX
+					
+					strtemp = ""
+					
+					Select ytemp
 						Case 0
-							strtemp = "Q"
+							strtemp = (xtemp + 1) Mod 10
 						Case 1
-							strtemp = "W"
+							Select xtemp
+								Case 0
+									strtemp = "Q"
+								Case 1
+									strtemp = "W"
+								Case 2
+									strtemp = "E"
+								Case 3
+									strtemp = "R"
+								Case 4
+									strtemp = "T"
+								Case 5
+									strtemp = "Y"
+								Case 6
+									strtemp = "U"
+								Case 7
+									strtemp = "I"
+								Case 8
+									strtemp = "O"
+								Case 9
+									strtemp = "P"
+							End Select
 						Case 2
-							strtemp = "E"
+							Select xtemp
+								Case 0
+									strtemp = "A"
+								Case 1
+									strtemp = "S"
+								Case 2
+									strtemp = "D"
+								Case 3
+									strtemp = "F"
+								Case 4
+									strtemp = "G"
+								Case 5
+									strtemp = "H"
+								Case 6
+									strtemp = "J"
+								Case 7
+									strtemp = "K"
+								Case 8
+									strtemp = "L"
+								Case 9 ;dispense
+									temp = True
+							End Select
 						Case 3
-							strtemp = "R"
+							Select xtemp
+								Case 0
+									strtemp = "Z"
+								Case 1
+									strtemp = "X"
+								Case 2
+									strtemp = "C"
+								Case 3
+									strtemp = "V"
+								Case 4
+									strtemp = "B"
+								Case 5
+									strtemp = "N"
+								Case 6
+									strtemp = "M"
+								Case 7
+									strtemp = "-"
+								Case 8
+									strtemp = " "
+								Case 9
+									Input294 = Left(Input294, Max(Len(Input294)-1,0))
+							End Select
 						Case 4
-							strtemp = "T"
-						Case 5
-							strtemp = "Y"
-						Case 6
-							strtemp = "U"
-						Case 7
-							strtemp = "I"
-						Case 8
-							strtemp = "O"
-						Case 9
-							strtemp = "P"
-					End Select
-				Case 2
-					Select xtemp
-						Case 0
-							strtemp = "A"
-						Case 1
-							strtemp = "S"
-						Case 2
-							strtemp = "D"
-						Case 3
-							strtemp = "F"
-						Case 4
-							strtemp = "G"
-						Case 5
-							strtemp = "H"
-						Case 6
-							strtemp = "J"
-						Case 7
-							strtemp = "K"
-						Case 8
-							strtemp = "L"
-						Case 9 ;dispense
-							temp = True
-					End Select
-				Case 3
-					Select xtemp
-						Case 0
-							strtemp = "Z"
-						Case 1
-							strtemp = "X"
-						Case 2
-							strtemp = "C"
-						Case 3
-							strtemp = "V"
-						Case 4
-							strtemp = "B"
-						Case 5
-							strtemp = "N"
-						Case 6
-							strtemp = "M"
-						Case 7
-							strtemp = "-"
-						Case 8
 							strtemp = " "
-						Case 9
-							Input294 = Left(Input294, Max(Len(Input294)-1,0))
 					End Select
-				Case 4
-					strtemp = " "
-			End Select
+				EndIf
+			EndIf
 			
 			Input294 = Input294 + strtemp
-			
-			Input294 = Left(Input294, Min(Len(Input294),15))
 			
 			If temp And Input294<>"" Then ;dispense
 				Input294 = Trim(Lower(Input294))
@@ -10291,7 +10415,7 @@ Function Use427()
 			PositionEntity pvt, EntityX(Collider)+Rnd(-0.05,0.05),EntityY(Collider)-0.05,EntityZ(Collider)+Rnd(-0.05,0.05)
 			TurnEntity pvt, 90, 0, 0
 			EntityPick(pvt,0.3)
-			de.Decals = CreateDecal(20, PickedX(), PickedY()+0.005, PickedZ(), 90, Rand(360), 0)
+			de.Decals = CreateDecal(DECAL_427, PickedX(), PickedY()+0.005, PickedZ(), 90, Rand(360), 0)
 			de\Size = Rnd(0.03,0.08)*2.0 : EntityAlpha(de\obj, 1.0) : ScaleSprite de\obj, de\Size, de\Size
 			tempchn% = PlaySound_Strict (DripSFX(Rand(0,2)))
 			ChannelVolume tempchn, Rnd(0.0,0.8)*SFXVolume
@@ -10316,7 +10440,7 @@ Function UpdateMTF%()
 	Local r.Rooms, n.NPCs
 	Local dist#, i%
 	
-	;mtf ei vielä spawnannut, spawnataan jos pelaaja menee tarpeeksi lähelle gate b:tä
+	;mtf ei vielÃ¤ spawnannut, spawnataan jos pelaaja menee tarpeeksi lÃ¤helle gate b:tÃ¤
 	If MTFtimer = 0 Then
 		If Rand(30)=1 And PlayerRoom\RoomTemplate\Name$ <> "dimension1499" Then
 			
@@ -10514,7 +10638,7 @@ Function UpdateInfect()
 						DeathMSG = DeathMSG + "SCP-008 infection was confirmed, after which the body was incinerated."
 						
 						Kill()
-						de.Decals = CreateDecal(3, EntityX(PlayerRoom\NPC[0]\Collider), 544*RoomScale + 0.01, EntityZ(PlayerRoom\NPC[0]\Collider),90,Rnd(360),0)
+						de.Decals = CreateDecal(DECAL_BLOOD_2, EntityX(PlayerRoom\NPC[0]\Collider), 544*RoomScale + 0.01, EntityZ(PlayerRoom\NPC[0]\Collider),90,Rnd(360),0)
 						de\Size = 0.8
 						ScaleSprite(de\obj, de\Size,de\Size)
 					ElseIf Infect > 96
@@ -10632,11 +10756,11 @@ Function CircleToLineSegIsect% (cx#, cy#, r#, l1x#, l1y#, l2x#, l2y#)
 	
 	;Palauttaa:
 	;  True (1) kun:
-	;      Ympyrä [keskipiste = (cx, cy): säde = r]
+	;      YmpyrÃ¤ [keskipiste = (cx, cy): sÃ¤de = r]
 	;      leikkaa janan, joka kulkee pisteiden (l1x, l1y) & (l2x, l2y) kaitta
 	;  False (0) muulloin
 	
-	;Ympyrän keskipisteen ja (ainakin toisen) janan päätepisteen etäisyys < r
+	;YmpyrÃ¤n keskipisteen ja (ainakin toisen) janan pÃ¤Ã¤tepisteen etÃ¤isyys < r
 	;-> leikkaus
 	If Distance(cx, cy, l1x, l1y) <= r Then
 		Return True
@@ -10646,7 +10770,7 @@ Function CircleToLineSegIsect% (cx#, cy#, r#, l1x#, l1y#, l2x#, l2y#)
 		Return True
 	EndIf	
 	
-	;Vektorit (janan vektori ja vektorit janan päätepisteistä ympyrän keskipisteeseen)
+	;Vektorit (janan vektori ja vektorit janan pÃ¤Ã¤tepisteistÃ¤ ympyrÃ¤n keskipisteeseen)
 	Local SegVecX# = l2x - l1x
 	Local SegVecY# = l2y - l1y
 	
@@ -10669,21 +10793,21 @@ Function CircleToLineSegIsect% (cx#, cy#, r#, l1x#, l1y#, l2x#, l2y#)
 		Return False
 	EndIf
 	
-	;Janan päätepisteiden kautta kulkevan suoran ;yhtälö; (ax + by + c = 0)
+	;Janan pÃ¤Ã¤tepisteiden kautta kulkevan suoran ;yhtÃ¤lÃ¶; (ax + by + c = 0)
 	Local a# = (l2y - l1y) / (l2x - l1x)
 	Local b# = -1
 	Local c# = -(l2y - l1y) / (l2x - l1x) * l1x + l1y
 	
-	;Ympyrän keskipisteen etäisyys suorasta
+	;YmpyrÃ¤n keskipisteen etÃ¤isyys suorasta
 	Local d# = Abs(a * cx + b * cy + c) / Sqr(a * a + b * b)
 	
-	;Ympyrä on liian kaukana
+	;YmpyrÃ¤ on liian kaukana
 	;-> ei leikkausta
 	If d > r Then Return False
 	
 	;Local kateetin_pituus# = Cos(angle) * hyp
 	
-	;Jos päästään tänne saakka, ympyrä ja jana leikkaavat (tai ovat sisäkkäin)
+	;Jos pÃ¤Ã¤stÃ¤Ã¤n tÃ¤nne saakka, ympyrÃ¤ ja jana leikkaavat (tai ovat sisÃ¤kkÃ¤in)
 	Return True
 End Function
 
@@ -10784,6 +10908,7 @@ Function UpdateINIFile$(filename$)
 	For k.INIFile = Each INIFile
 		If k\name = Lower(filename) Then
 			file = k
+			Exit
 		EndIf
 	Next
 	
@@ -10811,6 +10936,7 @@ Function GetINIString$(file$, section$, parameter$, defaultvalue$="")
 	For k.INIFile = Each INIFile
 		If k\name = Lower(file) Then
 			lfile = k
+			Exit
 		EndIf
 	Next
 	
@@ -10916,12 +11042,13 @@ Function GetINISectionLocation%(file$, section$)
 		If Left(strtemp,1) = "[" Then
 			strtemp$ = Lower(strtemp)
 			Temp = Instr(strtemp, section)
-			If Temp>0 Then
-				If Mid(strtemp, Temp-1, 1)="[" Or Mid(strtemp, Temp-1, 1)="|" Then
+			While Temp>0
+				If (Mid(strtemp, Temp-1, 1)="[" Or Mid(strtemp, Temp-1, 1)="|") And (Mid(strtemp, Temp+Len(section), 1)="]" Or Mid(strtemp, Temp+Len(section), 1)="|") Then
 					CloseFile f
 					Return n
 				EndIf
-			EndIf
+				Temp = Instr(strtemp, section, Temp+Len(section)+1)
+			Wend
 		EndIf
 	Wend
 	
@@ -11673,8 +11800,7 @@ End Function
 Function PlayAnnouncement(file$) ;This function streams the announcement currently playing
 	
 	If IntercomStreamCHN <> 0 Then
-		StopStream_Strict(IntercomStreamCHN)
-		IntercomStreamCHN = 0
+		StopStream_Strict(IntercomStreamCHN) : IntercomStreamCHN = 0
 	EndIf
 	
 	IntercomStreamCHN = StreamSound_Strict(file$,SFXVolume,0)
@@ -11705,20 +11831,19 @@ Function UpdateStreamSounds()
 	If (Not PlayerInReachableRoom()) Then
 		If PlayerRoom\RoomTemplate\Name <> "exit1" And PlayerRoom\RoomTemplate\Name <> "gatea" Then
 			If IntercomStreamCHN <> 0 Then
-				StopStream_Strict(IntercomStreamCHN)
-				IntercomStreamCHN = 0
+				StopStream_Strict(IntercomStreamCHN) : IntercomStreamCHN = 0
 			EndIf
 			If PlayerRoom\RoomTemplate\Name$ <> "dimension1499" Then
 				For e = Each Events
-					If e\SoundCHN<>0 And e\SoundCHN_isStream Then
-						StopStream_Strict(e\SoundCHN)
-						e\SoundCHN = 0
-						e\SoundCHN_isStream = 0
+					If e\SoundCHN<>0 Then
+						If e\SoundCHN_isStream Then
+							StopStream_Strict(e\SoundCHN) : e\SoundCHN = 0 : e\SoundCHN_isStream = False
+						EndIf
 					EndIf
-					If e\SoundCHN2<>0 And e\SoundCHN2_isStream Then
-						StopStream_Strict(e\SoundCHN2)
-						e\SoundCHN = 0
-						e\SoundCHN_isStream = 0
+					If e\SoundCHN2<>0 Then
+						If e\SoundCHN2_isStream Then
+							StopStream_Strict(e\SoundCHN2) : e\SoundCHN2 = 0 : e\SoundCHN2_isStream = False
+						EndIf
 					EndIf
 				Next
 			EndIf
@@ -11875,12 +12000,14 @@ Function CanUseItem(canUseWithHazmat%, canUseWithGasMask%, canUseWithEyewear%)
 		Msg = "You can't use that item while wearing a hazmat suit."
 		MsgTimer = 70*5
 		Return False
-	Else If (canUseWithGasMask = False And (WearingGasMask Or Wearing1499))
+	ElseIf (canUseWithGasMask = False And (WearingGasMask Or Wearing1499))
 		Msg = "You can't use that item while wearing a gas mask."
 		MsgTimer = 70*5
 		Return False
-	Else If (canUseWithEyewear = False And (WearingNightVision))
+	ElseIf (canUseWithEyewear = False And (WearingNightVision))
 		Msg = "You can't use that item while wearing headgear."
+		MsgTimer = 70*5
+		Return False
 	EndIf
 	
 	Return True
@@ -11978,19 +12105,3 @@ End Function
 
 
 
-
-;~IDEal Editor Parameters:
-;~F#39#D8#177#17D#18D#241#2EC#2F5#315#329#32E#334#33A#340#346#34B#369#37F#394#39A
-;~F#3A0#3A7#3AE#3BB#3C1#3C7#3CD#3D4#3E3#3EC#3F8#40A#423#43F#444#451#463#47E#485#48B
-;~F#499#4AC#4B5#4BE#4E4#4F6#50D#519#525#538#53E#544#548#54E#553#572#581#590#596#5A5
-;~F#600#6A3#716#73A#7DC#7E9#8BC#959#972#980#9B2#A70#A7F#AB7#AD1#ADA#BB9#CFB#D0C#D43
-;~F#D6B#D7A#DA2#DCC#DE5#DF8#E28#E40#EF3#EFC#F13#F71#F9E#10E7#11D4#1365#14E9#1542#1571#158C
-;~F#15A3#15B6#15C9#15DC#15EB#1607#160B#160F#1618#1633#1666#16C0#16CB#16D7#16E3#170E#171E#175D#176A#1777
-;~F#178C#18D1#18ED#18FD#190D#191A#1944#196A#1983#1A3C#1A96#1AAC#1AB8#1ACF#1ADA#1AE7#1AF1#1AFF#1B58#1BD2
-;~F#1C2C#1C67#1CB7#1E05#1E11#1ED3#1FAF#203D#20D9#2106#2137#224C#225E#227A#2284#2291#22B5#22F5#2335#2385
-;~F#23BE#23D2#23E7#23EB#240B#2413#243E#26A5#2763#27C2#281A#28C6#28D0#28D6#28E0#28EC#28F7#28FB#2936#293E
-;~F#2946#294D#2954#2961#2967#2972#29B1#29C0#29DE#2A0C#2A13#2A26#2A3F#2A6C#2A77#2A7C#2A96#2AA2#2ABD#2B0F
-;~F#2B1D#2B25#2B2D#2B59#2B62#2B8B#2B90#2B95#2B9A#2BA3#2BB4#2C59#2C67#2CD2#2CE4#2D03#2D12#2D29#2D4C#2D50
-;~F#2D54#2D82#2DA0#2DAB#2DD9#2DF7#2E42#2E5B#2E6A#2E7A#2E8A#2EC5
-;~B#11DC#1454#1BF2
-;~C#Blitz3D
