@@ -2266,13 +2266,13 @@ Function FillRoom(r.Rooms)
 		Case "lockroom2"
 			;[Block]
 			For i = 0 To 5
-				de.Decals = CreateDecal(Rand(2,3), r\x+Rnd(-392,520)*RoomScale, 3.0*RoomScale+Rnd(0,0.001), r\z+Rnd(-392,520)*RoomScale,90,Rnd(360),0)
+				de.Decals = CreateDecal(Rand(DECAL_BLOOD_1,DECAL_BLOOD_2), r\x+Rnd(-392,520)*RoomScale, 3.0*RoomScale+Rnd(0,0.001), r\z+Rnd(-392,520)*RoomScale,90,Rnd(360),0)
 				de\Size = Rnd(0.3,0.6)
 				ScaleSprite(de\obj, de\Size,de\Size)
-				CreateDecal(Rand(15,16), r\x+Rnd(-392,520)*RoomScale, 3.0*RoomScale+Rnd(0,0.001), r\z+Rnd(-392,520)*RoomScale,90,Rnd(360),0)
+				CreateDecal(Rand(DECAL_BLOOD_DROP_1,DECAL_BLOOD_DROP_2), r\x+Rnd(-392,520)*RoomScale, 3.0*RoomScale+Rnd(0,0.001), r\z+Rnd(-392,520)*RoomScale,90,Rnd(360),0)
 				de\Size = Rnd(0.1,0.6)
 				ScaleSprite(de\obj, de\Size,de\Size)
-				CreateDecal(Rand(15,16), r\x+Rnd(-0.5,0.5), 3.0*RoomScale+Rnd(0,0.001), r\z+Rnd(-0.5,0.5),90,Rnd(360),0)
+				CreateDecal(Rand(DECAL_BLOOD_DROP_1,DECAL_BLOOD_DROP_2), r\x+Rnd(-0.5,0.5), 3.0*RoomScale+Rnd(0,0.001), r\z+Rnd(-0.5,0.5),90,Rnd(360),0)
 				de\Size = Rnd(0.1,0.6)
 				ScaleSprite(de\obj, de\Size,de\Size)
 			Next
@@ -2347,7 +2347,7 @@ Function FillRoom(r.Rooms)
 			PositionEntity(r\Objects[3], r\x+1216.0*RoomScale, r\y, r\z+2112.0*RoomScale, True)
 			EntityParent r\Objects[3], r\obj
 			
-			;sillan loppup��
+			;sillan loppupï¿½ï¿½
 			r\Objects[4]=CreatePivot()
 			PositionEntity(r\Objects[4], r\x, r\y+96.0*RoomScale, r\z+6400.0*RoomScale, True)
 			EntityParent r\Objects[4], r\obj		
@@ -2376,7 +2376,7 @@ Function FillRoom(r.Rooms)
 			r\Objects[9]=CreatePivot()
 			PositionEntity(r\Objects[9], r\x+2624.0*RoomScale, r\y+992.0*RoomScale, r\z+6157.0*RoomScale, True)
 			EntityParent r\Objects[9], r\obj	
-			;objects[10] = valopyssyn yl�osa
+			;objects[10] = valopyssyn ylï¿½osa
 			
 			;tunnelin loppu
 			r\Objects[11]=CreatePivot()
@@ -2433,7 +2433,7 @@ Function FillRoom(r.Rooms)
 			RotateEntity r\RoomDoors[4]\buttons[1],0,r\angle-90,0,True
 			PositionEntity(r\RoomDoors[4]\buttons[0], r\x, 7.0, r\z, True)		
 			
-			;k�yt�v�n takaosa
+			;kï¿½ytï¿½vï¿½n takaosa
 			r\Objects[3] = CreatePivot()
 			PositionEntity(r\Objects[3], r\x-7680.0*RoomScale, 10992.0*RoomScale, r\z-27048.0*RoomScale, True)
 			EntityParent r\Objects[3], r\obj
@@ -2489,7 +2489,7 @@ Function FillRoom(r.Rooms)
 			PositionEntity(r\Objects[11], r\x+2816.0*RoomScale, 11024.0*RoomScale, r\z-2816.0*RoomScale, True)
 			EntityParent r\Objects[11], r\obj
 			
-			;r\Objects[12] = 682:n k�si
+			;r\Objects[12] = 682:n kï¿½si
 			
 			;"valvomon" takaovi
 			r\RoomDoors[5] = CreateDoor(0, r\x+3248.0*RoomScale, 9856.0*RoomScale, r\z+6400.0*RoomScale, 0, r, False, False, 0, "ABCD")
@@ -2523,7 +2523,7 @@ Function FillRoom(r.Rooms)
 			PositionEntity(r\Objects[19], r\x+3808.0*RoomScale, 12320.0*RoomScale, r\z-13568.0*RoomScale, True)
 			EntityParent r\Objects[19], r\obj			
 			
-			;[End Block]
+			;[End Block]	
 		Case "roompj"
 			;[Block]
 			it = CreateItem("Document SCP-372", "paper", r\x + 800.0 * RoomScale, r\y + 176.0 * RoomScale, r\z + 1108.0 * RoomScale)
@@ -2546,45 +2546,44 @@ Function FillRoom(r.Rooms)
 			;[End Block]
 		Case "room079"
 			;[Block]
-			d = CreateDoor(r\zone, r\x, -448.0*RoomScale, r\z + 1136.0 * RoomScale, 0, r, False,True, 4)
+			d = CreateDoor(r\zone, r\x, r\y - 448.0 * RoomScale, r\z + 1136.0 * RoomScale, 0, r, False, True, 6)
 			d\dir = 1 : d\AutoClose = False : d\open = False
-			PositionEntity(d\buttons[1], r\x + 224.0 * RoomScale, -250*RoomScale, r\z + 918.0 * RoomScale, True)
-			;TurnEntity(d\buttons[0],0,-90,0,True)
-			PositionEntity(d\buttons[0], r\x - 240.0 * RoomScale, -250*RoomScale, r\z + 1366.0 * RoomScale, True)
-			;TurnEntity(d\buttons[1],0, 90,0,True)	
+			PositionEntity(d\buttons[1], r\x + 230.0 * RoomScale, r\y - 250.0 * RoomScale, r\z + 918.0 * RoomScale, True) 
+			PositionEntity(d\buttons[0], r\x - 246.0 * RoomScale, r\y - 250.0 * RoomScale, r\z + 1366.0 * RoomScale, True)	
 			
-			r\RoomDoors[0] = CreateDoor(r\zone, r\x + 1456.0*RoomScale, -448.0*RoomScale, r\z + 976.0 * RoomScale, 0, r, False, True, 3)
+			r\RoomDoors[0] = CreateDoor(r\zone, r\x + 1456.0 * RoomScale, r\y - 448.0 * RoomScale, r\z + 976.0 * RoomScale, 0, r, False, True, 6)
 			r\RoomDoors[0]\dir = 1 : r\RoomDoors[0]\AutoClose = False : r\RoomDoors[0]\open = False
-			PositionEntity(r\RoomDoors[0]\buttons[1], r\x + 1760.0 * RoomScale, -250*RoomScale, r\z + 1236.0 * RoomScale, True)
-			TurnEntity(r\RoomDoors[0]\buttons[0],0,-90-90,0,True)
-			PositionEntity(r\RoomDoors[0]\buttons[0], r\x + 1760.0 * RoomScale, -240*RoomScale, r\z + 740.0 * RoomScale, True)
-			TurnEntity(r\RoomDoors[0]\buttons[1],0, 90-90,0,True)
+			PositionEntity(r\RoomDoors[0]\buttons[1], r\x + 1766.0 * RoomScale, r\y - 250.0 * RoomScale, r\z + 1216.0 * RoomScale, True)
+			TurnEntity(r\RoomDoors[0]\buttons[0], 0, -90 - 90, 0, True)
+			PositionEntity(r\RoomDoors[0]\buttons[0], r\x + 1758.0 * RoomScale, r\y - 240.0 * RoomScale, r\z + 720.0 * RoomScale, True)
+			TurnEntity(r\RoomDoors[0]\buttons[1], 0, 90 - 90, 0, True)
 			
-			CreateDoor(0, r\x + 1144.0*RoomScale, -448.0*RoomScale, r\z + 704.0 * RoomScale, 90, r, False, False, -1)
+			d = CreateDoor(0, r\x + 1144.0 * RoomScale, r\y - 448.0 * RoomScale, r\z + 704.0 * RoomScale, 90, r, False, False, -1)
+			PositionEntity(d\buttons[0], EntityX(d\buttons[0], True) - 0.062, EntityY(d\buttons[0], True), EntityZ(d\buttons[0], True), True)
+			PositionEntity(d\buttons[1], EntityX(d\buttons[1], True) + 0.062, EntityY(d\buttons[1], True), EntityZ(d\buttons[1], True), True)	
 			
-			r\Objects[0] = LoadAnimMesh_Strict("GFX\map\079.b3d")
-			ScaleEntity(r\Objects[0], 1.3, 1.3, 1.3, True)
-			PositionEntity (r\Objects[0], r\x + 1856.0*RoomScale, -560.0*RoomScale, r\z-672.0*RoomScale, True)
+			If r\Objects[0] = 0 Then r\Objects[0] = LoadAnimMesh_Strict(MapPath$+"GFX\map\079.b3d")
+			ScaleEntity(r\Objects[0], 1.3, 1.3, 1.3)
+			PositionEntity (r\Objects[0], r\x + 1856.0 * RoomScale, r\y - 560.0 * RoomScale, r\z - 672.0 * RoomScale)
 			EntityParent(r\Objects[0], r\obj)
-			TurnEntity r\Objects[0],0,180,0,True
+			TurnEntity(r\Objects[0], 0, 180, 0)
 			
 			r\Objects[1] = CreateSprite(r\Objects[0])
-			SpriteViewMode(r\Objects[1],2)
+			SpriteViewMode(r\Objects[1], 2)
 			PositionEntity(r\Objects[1], 0.082, 0.119, 0.010)
-			ScaleSprite(r\Objects[1],0.18*0.5,0.145*0.5)
-			TurnEntity(r\Objects[1],0,13.0,0)
-			MoveEntity r\Objects[1], 0,0,-0.022
-			EntityTexture (r\Objects[1],OldAiPics(0))
+			ScaleSprite(r\Objects[1], 0.18 * 0.5, 0.145 * 0.5)
+			TurnEntity(r\Objects[1],0, 13.0, 0)
+			MoveEntity(r\Objects[1], 0, 0, -0.022)
+			HideEntity(r\Objects[1])
 			
-			HideEntity r\Objects[1]
+			r\Objects[2] = CreatePivot()
+			PositionEntity (r\Objects[2], r\x + 1184.0 * RoomScale, r\y - 448.0 * RoomScale, r\z + 1792.0 * RoomScale)
+			EntityParent(r\Objects[2], r\obj)
 			
-			r\Objects[2] = CreatePivot(r\obj)
-			PositionEntity (r\Objects[2], r\x + 1184.0*RoomScale, -448.0*RoomScale, r\z+1792.0*RoomScale, True)
-			
-			de.Decals = CreateDecal(3,  r\x + 1184.0*RoomScale, -448.0*RoomScale+0.01, r\z+1792.0*RoomScale,90,Rnd(360),0)
+			de.Decals = CreateDecal(DECAL_BLOOD_DROP_2, r\x + 1184.0 * RoomScale, r\y - 448.0 * RoomScale + 0.01, r\z + 1792.0 * RoomScale, 90, Rnd(360), 0)
 			de\Size = 0.5
-			ScaleSprite(de\obj, de\Size,de\Size)
-			EntityParent de\obj, r\obj
+			ScaleSprite(de\obj, de\Size, de\Size)
+			EntityParent(de\obj, r\obj)
 			;[End Block]
 		Case "checkpoint1"
 			;[Block]
@@ -2615,6 +2614,7 @@ Function FillRoom(r.Rooms)
 			PositionEntity (r\Objects[2], r\x - 152.0*RoomScale, 384.0*RoomScale, r\z+124.0*RoomScale, True)
 			RotateEntity (r\Objects[2],0,180,0)
 			EntityFX r\Objects[2],1
+			
 			
 			r\Objects[3] = CopyEntity(Monitor2,r\obj)
 			ScaleEntity(r\Objects[3], 2.0, 2.0, 2.0)
@@ -2648,7 +2648,7 @@ Function FillRoom(r.Rooms)
 			RotateEntity (r\Objects[2],0,180,0)
 			EntityFX r\Objects[2],1
 			
-			r\Objects[3] = CopyEntity(Monitor3,r\obj)
+            r\Objects[3] = CopyEntity(Monitor3,r\obj)
 			ScaleEntity(r\Objects[3], 2.0, 2.0, 2.0)
 			PositionEntity (r\Objects[3], r\x + 152.0*RoomScale, 384.0*RoomScale, r\z-124.0*RoomScale, True)
 			RotateEntity (r\Objects[3],0,0,0)
@@ -2743,6 +2743,7 @@ Function FillRoom(r.Rooms)
 			PositionEntity(r\Objects[0], r\x + 1040.0 * RoomScale, 192.0 * RoomScale, r\z)
 			EntityParent(r\Objects[0], r\obj)
 			
+			
 			r\Objects[1] = CreatePivot()
 			;PositionEntity(r\Objects[1], r\x + 1270.0*RoomScale, 0.5, r\z+570.0*RoomScale)
 			PositionEntity(r\Objects[1], r\x + 1530.0*RoomScale, 0.5, r\z+512.0*RoomScale)
@@ -2832,7 +2833,7 @@ Function FillRoom(r.Rooms)
 			r\Objects[1] = CreatePivot(r\obj)
             PositionEntity r\Objects[1],r\x + 1344.0 * RoomScale, -752.0 * RoomScale,r\z - 384.0 * RoomScale,True
             
-            de.Decals = CreateDecal(3,  r\x + 1334.0*RoomScale, -796.0*RoomScale+0.01, r\z-220.0*RoomScale,90,Rnd(360),0)
+            de.Decals = CreateDecal(DECAL_BLOOD_DROP_2,  r\x + 1334.0*RoomScale, -796.0*RoomScale+0.01, r\z-220.0*RoomScale,90,Rnd(360),0)
             de\Size = 0.25
             ScaleSprite(de\obj, de\Size,de\Size)
             EntityParent de\obj, r\obj
@@ -2881,12 +2882,12 @@ Function FillRoom(r.Rooms)
 			FreeEntity r\RoomDoors[0]\buttons[1] : r\RoomDoors[0]\buttons[1] = 0
 			r\RoomDoors[0]\AutoClose = False : r\RoomDoors[0]\open = False : r\RoomDoors[0]\locked = True	
 			
-			de.Decals = CreateDecal(0, r\x - 808.0 * RoomScale, 0.005, r\z - 72.0 * RoomScale, 90, Rand(360), 0)
+			de.Decals = CreateDecal(DECAL_GLITCH_1, r\x - 808.0 * RoomScale, 0.005, r\z - 72.0 * RoomScale, 90, Rand(360), 0)
 			EntityParent(de\obj, r\obj)
 			de.Decals = CreateDecal(2, r\x - 808.0 * RoomScale, 0.01, r\z - 72.0 * RoomScale, 90, Rand(360), 0)
 			de\Size = 0.3 : ScaleSprite(de\obj, de\Size, de\Size) : EntityParent(de\obj, r\obj)
 			
-			de.Decals = CreateDecal(0, r\x - 432.0 * RoomScale, 0.01, r\z, 90, Rand(360), 0)
+			de.Decals = CreateDecal(DECAL_GLITCH_1, r\x - 432.0 * RoomScale, 0.01, r\z, 90, Rand(360), 0)
 			EntityParent(de\obj, r\obj)
 			
 			r\Objects[0] = CreatePivot(r\obj)
@@ -2913,6 +2914,45 @@ Function FillRoom(r.Rooms)
 			PositionEntity(r\RoomDoors[0]\buttons[1], r\x + 416.0 * RoomScale, EntityY(r\RoomDoors[0]\buttons[1],True), r\z - 208.0 * RoomScale,True)
 			PositionEntity(r\RoomDoors[0]\buttons[0], r\x + 480.0 * RoomScale, EntityY(r\RoomDoors[0]\buttons[0],True), r\z + 184.0 * RoomScale,True)
 			r\RoomDoors[0]\AutoClose = False : r\RoomDoors[0]\open = True : r\RoomDoors[0]\locked = True
+			;[End Block]
+		Case "auditorium"
+			;[Block]
+			r\RoomDoors[1] = CreateDoor(r\zone, r\x + 128.0 * RoomScale, 0, r\z + 640.0 *RoomScale, 90, r, True, False, 3)
+			r\RoomDoors[1]\AutoClose = False : r\RoomDoors[1]\open = False
+		    ;PositionEntity(d\buttons[0], r\x + 320.0 * RoomScale, EntityY(d\buttons[0],True), EntityZ(d\buttons[0],True), True)
+			;PositionEntity(d\buttons[1], r\x + 224.0 * RoomScale, EntityY(d\buttons[1],True), EntityZ(d\buttons[1],True), True)
+			
+			r\RoomDoors[0] = CreateDoor(r\zone, r\x - 1392.0 * RoomScale, -128.0 * RoomScale, r\z - 384*RoomScale, 0, r, True, False, 3, "", True)
+			r\RoomDoors[0]\AutoClose = False : r\RoomDoors[0]\open = False
+			FreeEntity(r\RoomDoors[0]\buttons[0]) : r\RoomDoors[0]\buttons[0]=0
+			FreeEntity(r\RoomDoors[0]\buttons[1]) : r\RoomDoors[0]\buttons[1]=0
+			
+			sc.SecurityCams = CreateSecurityCam(r\x - 1152.0 * RoomScale, r\y + 900.0 * RoomScale, r\z + 176.0 * RoomScale, r, True)
+			sc\angle = 90 : sc\turn = 0
+			EntityParent(sc\obj, r\obj)
+			
+			sc\AllowSaving = False
+			sc\RenderInterval = 0
+			
+			EntityParent(sc\ScrObj, 0)
+			PositionEntity(sc\ScrObj, r\x - 1716.0 * RoomScale, r\y + 160.0 * RoomScale, r\z + 176.0 * RoomScale, True)
+			TurnEntity sc\ScrObj, 0, 90, 0
+			ScaleSprite sc\ScrObj, 896.0*0.5*RoomScale, 896.0*0.5*RoomScale
+			
+			EntityParent(sc\ScrObj, r\obj)
+			EntityBlend(sc\ScrObj, 2)
+			
+			CameraZoom (sc\Cam, 1.5)
+			
+			HideEntity sc\ScrOverlay
+			HideEntity sc\MonitorObj
+			
+			r\Objects[0] = CreatePivot(r\obj)
+			PositionEntity r\Objects[0], r\x - 1536.0 * RoomScale, r\y + 730.0 * RoomScale, r\z + 192.0 * RoomScale, True
+			RotateEntity r\Objects[0], 0,-90,0,True
+			
+			r\Objects[1] = sc\ScrObj
+			
 			;[End Block]
 		Case "room2cafeteria"
 			;[Block]
@@ -2951,10 +2991,10 @@ Function FillRoom(r.Rooms)
 			PositionEntity(d\buttons[0], EntityX(d\buttons[0],True), EntityY(d\buttons[0],True), r\z + 608.0 * RoomScale,True)
 			PositionEntity(d\buttons[1], EntityX(d\buttons[1],True), EntityY(d\buttons[1],True), r\z + 608.0 * RoomScale,True)
 			
-			;yl�kerran hissin ovi
+			;ylï¿½kerran hissin ovi
 			r\RoomDoors[0] = CreateDoor(r\zone, r\x + 1192.0 * RoomScale, 0.0, r\z, 90, r, True, 3)
 			r\RoomDoors[0]\AutoClose = False : r\RoomDoors[0]\open = True
-			;yl�kerran hissi
+			;ylï¿½kerran hissi
 			r\Objects[4] = CreatePivot()
 			PositionEntity(r\Objects[4], r\x + 1496.0 * RoomScale, 240.0 * RoomScale, r\z)
 			EntityParent(r\Objects[4], r\obj)
@@ -3038,7 +3078,7 @@ Function FillRoom(r.Rooms)
 			PositionEntity(d\buttons[1], r\x - 224.0 * RoomScale, r\y + 0.7, r\z + 384.0 * RoomScale, True)		
 			RotateEntity (d\buttons[1], 0,90,0,True)
 			
-			de.Decals = CreateDecal(0, r\x + 64.0 * RoomScale, 0.005, r\z + 144.0 * RoomScale, 90, Rand(360), 0)
+			de.Decals = CreateDecal(DECAL_GLITCH_1, r\x + 64.0 * RoomScale, 0.005, r\z + 144.0 * RoomScale, 90, Rand(360), 0)
 			EntityParent(de\obj, r\obj)
 			it = CreateItem("Scorched Note", "paper", r\x + 64.0 * RoomScale, r\y +144.0 * RoomScale, r\z - 384.0 * RoomScale)
 			EntityParent(it\collider, r\obj)
@@ -3376,7 +3416,7 @@ Function FillRoom(r.Rooms)
 			EntityParent(it\collider, r\obj)
 			it\state = 450
 			
-			de.Decals = CreateDecal(3,  r\x + x*RoomScale, -5632.0*RoomScale+0.01, r\z+z*RoomScale,90,Rnd(360),0)
+			de.Decals = CreateDecal(DECAL_BLOOD_2,  r\x + x*RoomScale, -5632.0*RoomScale+0.01, r\z+z*RoomScale,90,Rnd(360),0)
 			de\Size = 0.5
 			ScaleSprite(de\obj, de\Size,de\Size)
 			EntityParent de\obj, r\obj
@@ -3451,8 +3491,12 @@ Function FillRoom(r.Rooms)
 			;zombie 2
 			r\Objects[5] = CreatePivot(r\obj)
 			PositionEntity(r\Objects[5], r\x  + 64.0 * RoomScale, -3440.0 * RoomScale, r\z - 1000.0 * RoomScale, True)
+			;zombie 3
+			r\Objects[13] = CreatePivot()
+			PositionEntity(r\Objects[13], r\x - 554.0 * RoomScale, r\y - 3400.0 * RoomScale, r\z + 1493.0 * RoomScale)
 			
-			For n% = 0 To 1
+			
+            For n% = 0 To 1
 				r\Objects[n * 2 + 6] = CopyEntity(LeverBaseOBJ)
 				r\Objects[n * 2 + 7] = CopyEntity(LeverOBJ)
 				
@@ -3583,6 +3627,7 @@ Function FillRoom(r.Rooms)
 			For i% = 0 To 1
 				ScaleEntity(r\Objects[i], 0.04, 0.04, 0.04)
 				PositionEntity (r\Objects[i], r\x + 240.0 * RoomScale, r\y - 512.0 * RoomScale, r\z - 364 * RoomScale, True)
+				PositionEntity (sc\ScrObj, r\x + 320.0 * RoomScale, r\y - 512.0 * RoomScale, r\z - 364 * RoomScale, True)
 				
 				EntityParent(r\Objects[i], r\obj)
 			Next
@@ -3618,7 +3663,7 @@ Function FillRoom(r.Rooms)
 			it.Items = CreateItem("Severed Hand", "hand", r\x - 784*RoomScale, -576*RoomScale+0.3, r\z+640*RoomScale)
 			EntityParent(it\collider, r\obj)
 			
-			de.Decals = CreateDecal(3,  r\x - 784*RoomScale, -768*RoomScale+0.01, r\z+640*RoomScale,90,Rnd(360),0)
+			de.Decals = CreateDecal(DECAL_BLOOD_2,  r\x - 784*RoomScale, -768*RoomScale+0.01, r\z+640*RoomScale,90,Rnd(360),0)
 			de\Size = 0.5
 			ScaleSprite(de\obj, de\Size,de\Size)
 			EntityParent de\obj, r\obj
@@ -3961,12 +4006,13 @@ Function FillRoom(r.Rooms)
 			d.Doors = CreateDoor(r\zone, r\x - 640.0 * RoomScale, 384.0*RoomScale, r\z + 64.0 * RoomScale, 90, r, False)
 			d\locked = True : d\AutoClose = False
 			
+			
 			d.Doors = CreateDoor(r\zone, r\x + 1280.0 * RoomScale, 384.0*RoomScale, r\z + 312.0 * RoomScale, 180, r, True)
 			d\locked = True : d\AutoClose = False
 			PositionEntity(d\buttons[0], r\x + 1120.0 * RoomScale, EntityY(d\buttons[0],True), r\z + 328.0 * RoomScale, True)
 			PositionEntity(d\buttons[1], r\x + 1120.0 * RoomScale, EntityY(d\buttons[1],True), r\z + 296.0 * RoomScale, True)
 			FreeEntity(d\obj2) : d\obj2=0
-			d\MTFClose = False
+			d\MTFClose = True
 			
 			d.Doors = CreateDoor(r\zone, r\x, 0, r\z + 1184.0 * RoomScale, 0, r, False)
 			d\locked = True
@@ -3976,7 +4022,7 @@ Function FillRoom(r.Rooms)
 			PositionEntity r\Objects[0], r\x + 272.0 * RoomScale, 0, r\z + 400.0 * RoomScale
 			EntityParent r\Objects[0], r\obj
 			
-			de.Decals = CreateDecal(0, r\x + 272.0 * RoomScale, 0.005, r\z + 262.0 * RoomScale, 90, Rand(360), 0)
+			de.Decals = CreateDecal(DECAL_GLITCH_1, r\x + 272.0 * RoomScale, 0.005, r\z + 262.0 * RoomScale, 90, Rand(360), 0)
 			EntityParent(de\obj, r\obj)
 			
 			r\Objects[1] = LoadMesh_Strict("GFX\map\IntroDrawer.b3d")
@@ -3984,7 +4030,7 @@ Function FillRoom(r.Rooms)
 			PositionEntity r\Objects[1], r\x + 448.0 * RoomScale, 0, r\z + 192.0 * RoomScale
 			EntityParent r\Objects[1], r\obj
 			
-			de.Decals = CreateDecal(0, r\x + 456.0 * RoomScale, 0.005, r\z + 135.0 * RoomScale, 90, Rand(360), 0)
+			de.Decals = CreateDecal(DECAL_GLITCH_1, r\x + 456.0 * RoomScale, 0.005, r\z + 135.0 * RoomScale, 90, Rand(360), 0)
 			EntityParent(de\obj, r\obj)
 			
 			sc.SecurityCams = CreateSecurityCam(r\x - 336.0 * RoomScale, r\y + 352 * RoomScale, r\z + 48.0 * RoomScale, r, True)
@@ -4128,7 +4174,7 @@ Function FillRoom(r.Rooms)
 						dx# = -544.0
 						dz# = 636.0
 				End Select
-				de.Decals = CreateDecal(Rand(15,16),r\x+dx#*RoomScale,0.005,r\z+dz#*RoomScale,90,Rand(360),0)
+				de.Decals = CreateDecal(Rand(DECAL_BLOOD_DROP_1,DECAL_BLOOD_DROP_2),r\x+dx#*RoomScale,0.005,r\z+dz#*RoomScale,90,Rand(360),0)
 				If i > 10 Then
 					de\Size = Rnd(0.2,0.25)
 				Else
@@ -4197,6 +4243,9 @@ Function FillRoom(r.Rooms)
 			d\AutoClose = False : d\open = False
 			PositionEntity(d\buttons[0], r\x - 384.0 * RoomScale, 0.7, r\z - 280.0 * RoomScale, True)
 			
+			r\RoomDoors[0] = CreateDoor(r\zone, r\x - 402.1 * RoomScale, r\y + 10 * RoomScale, r\z, 90, r, True, False, 2)
+			r\RoomDoors[0]\AutoClose = False : r\RoomDoors[0]\open = False
+			
 			sc.SecurityCams = CreateSecurityCam(r\x - 320.0 * RoomScale, r\y + 704 * RoomScale, r\z + 288.0 * RoomScale, r, True)
 			sc\angle = 45 + 180
 			sc\turn = 45
@@ -4212,13 +4261,13 @@ Function FillRoom(r.Rooms)
 			
 			r\Objects[2] = CopyEntity(LeverBaseOBJ)
 			r\Objects[3] = CopyEntity(LeverOBJ)
-				
+			
 			r\Levers[0] = r\Objects[3]
-				
+			
 			For i% = 0 To 1
 				ScaleEntity(r\Objects[2 + i], 0.04, 0.04, 0.04)
 				PositionEntity (r\Objects[2 + i], r\x - 800.0 * RoomScale, r\y + 180.0 * RoomScale, r\z - 336 * RoomScale, True)
-					
+				
 				EntityParent(r\Objects[2 + i], r\obj)
 			Next
 			RotateEntity(r\Objects[2], 0, 180, 0)
@@ -4407,13 +4456,13 @@ Function FillRoom(r.Rooms)
 			FreeEntity(r\RoomDoors[1]\buttons[0]) : r\RoomDoors[1]\buttons[0] = 0
 			FreeEntity(r\RoomDoors[1]\buttons[1]) : r\RoomDoors[1]\buttons[1] = 0
 			
-			de.Decals = CreateDecal(Rand(4, 5), EntityX(r\Objects[5], True), 0.002, EntityZ(r\Objects[5], True), 90, Rnd(360), 0)
+			de.Decals = CreateDecal(Rand(DECAL_BLOOD_3, DECAL_BLOOD_4), EntityX(r\Objects[5], True), 0.002, EntityZ(r\Objects[5], True), 90, Rnd(360), 0)
 			de\Size = 1.2
 			ScaleSprite(de\obj, de\Size, de\Size)
 			
 			For xtemp% = 0 To 1
 				For ztemp% = 0 To 1
-					de.Decals = CreateDecal(Rand(4, 6), r\x + 700.0 * RoomScale + xtemp * 700.0 * RoomScale + Rnd(-0.5, 0.5), Rnd(0.001, 0.0018), r\z + 600 * ztemp * RoomScale + Rnd(-0.5, 0.5), 90, Rnd(360), 0)
+					de.Decals = CreateDecal(Rand(DECAL_BLOOD_3, DECAL_BLOOD_5), r\x + 700.0 * RoomScale + xtemp * 700.0 * RoomScale + Rnd(-0.5, 0.5), Rnd(0.001, 0.0018), r\z + 600 * ztemp * RoomScale + Rnd(-0.5, 0.5), 90, Rnd(360), 0)
 					de\Size = Rnd(0.5, 0.8)
 					de\Alpha = Rnd(0.8, 1.0)
 					ScaleSprite(de\obj, de\Size, de\Size)
@@ -4937,7 +4986,7 @@ Function FillRoom(r.Rooms)
 			r\RoomDoors[0] = CreateDoor(0, r\x,2048*RoomScale,r\z+32.0-1024*RoomScale,0,r,False)
 			r\RoomDoors[1] = CreateDoor(0, r\x,2048*RoomScale,r\z+32.0+1024*RoomScale,180,r,False)
 			
-			de.Decals = CreateDecal(18, r\x-(1536*RoomScale), 0.02,r\z+608*RoomScale+32.0, 90,0,0)
+			de.Decals = CreateDecal(DECAL_PD_6, r\x-(1536*RoomScale), 0.02,r\z+608*RoomScale+32.0, 90,0,0)
 			EntityParent(de\obj, r\obj)
 			de\Size = Rnd(0.8, 0.8)
 			de\blendmode = 2
@@ -4963,7 +5012,7 @@ Function FillRoom(r.Rooms)
 				EntityParent (r\Objects[i-1], r\obj)
 				
 				If i < 6 Then 
-					de.Decals = CreateDecal(i+7, r\x+Cos(angle)*(512.0*RoomScale)*3.0, 0.02,r\z+Sin(angle)*(512.0*RoomScale)*3.0, 90,angle-90,0)
+					de.Decals = CreateDecal(i - DECAL_PD_1, r\x+Cos(angle)*(512.0*RoomScale)*3.0, 0.02,r\z+Sin(angle)*(512.0*RoomScale)*3.0, 90,angle-90,0)
 					de\Size = Rnd(0.5, 0.5)
 					de\blendmode = 2
 					de\fx = 1+8
@@ -5062,7 +5111,7 @@ Function FillRoom(r.Rooms)
 				r\Objects[2] = CreatePivot(r\obj)
 				PositionEntity (r\Objects[2], r\x - 156.825*RoomScale, -37.3458*RoomScale, r\z+121.364*RoomScale, True)
 				
-				de.Decals = CreateDecal(3,  r\x - 156.825*RoomScale, -37.3458*RoomScale, r\z+121.364*RoomScale,90,Rnd(360),0)
+				de.Decals = CreateDecal(DECAL_BLOOD_2,  r\x - 156.825*RoomScale, -37.3458*RoomScale, r\z+121.364*RoomScale,90,Rnd(360),0)
 				de\Size = 0.5
 				ScaleSprite(de\obj, de\Size,de\Size)
 				EntityParent de\obj, r\obj
@@ -5233,6 +5282,13 @@ Function FillRoom(r.Rooms)
 			it = CreateItem("Sticky Note", "paper", r\x - 991.0*RoomScale, r\y - 242.0*RoomScale, r\z + 904.0*RoomScale)
 			EntityParent(it\collider, r\obj)
 			;[End Block]
+		Case "hangar"
+			;[Block]
+			r\RoomDoors[0] = CreateDoor(r\zone, r\x -448 * RoomScale, r\y - 520.3 * RoomScale, r\z + 256 * RoomScale, 0, r, False, False, 6)
+			r\RoomDoors[0]\open = False : r\RoomDoors[0]\AutoClose = False
+			FreeEntity r\RoomDoors[0]\buttons[0] : r\RoomDoors[0]\buttons[0]=0
+			FreeEntity r\RoomDoors[0]\buttons[1] : r\RoomDoors[0]\buttons[1]=0
+		    ;[End Block]
 		Case "room2sl"
 			;[Block]
 			Local scale# = RoomScale * 4.5 * 0.4
@@ -5368,7 +5424,7 @@ Function FillRoom(r.Rooms)
 			Next
 			RotateEntity(r\Objects[9 * 2], 0, 0, 0)
 			RotateEntity(r\Objects[9 * 2 + 1], 10, 0 - 180, 0)
-				
+			
 			EntityPickMode r\Objects[9 * 2 + 1], 1, False
 			EntityRadius r\Objects[9 * 2 + 1], 0.1
 			
@@ -5469,6 +5525,14 @@ Function FillRoom(r.Rooms)
 			it = CreateItem("Syringe", "syringe", r\x - 340.0 * RoomScale, r\y + 100.0 * RoomScale, r\z + 52.3 * RoomScale)
 			EntityParent(it\collider, r\obj)
 			r\RoomDoors[0] = CreateDoor(r\zone, r\x - 264.0 * RoomScale, r\y - 0.0 * RoomScale, r\z + 640.0 * RoomScale, 90, r, False, False, 3)
+			
+			r\RoomDoors[1] = CreateDoor(r\zone, r\x - 498.0 * RoomScale, r\y - 0.0 * RoomScale, r\z + 378.0 * RoomScale, 0, r, False, False, 5)
+			
+			;r\Objects[3] = LoadMesh_Strict("GFX\map\officedoor.b3d")
+			;PositionEntity(r\Objects[3], r\x - 498.0 * RoomScale, r\y - 0.0 * RoomScale, r\z + 378.0 * RoomScale, False)
+			;RotateEntity r\Objects[4],0,90,0,True
+			;ScaleEntity r\Objects[3], RoomScale, RoomScale, RoomScale, True
+			;EntityParent r\Objects[3],r\obj
 			
 			r\Objects[3] = CreatePivot(r\obj)
 			;PositionEntity r\Objects[3],r\x-926.891*RoomScale,r\y,r\z-318.399*RoomScale,True
@@ -6095,7 +6159,7 @@ Function FindPath(n.NPCs, x#, y#, z#)
 	EndIf
 	If EndPoint = Null Then Return 2
 	
-       ;aloitus- ja lopetuspisteet l�ydetty, aletaan etsi� reitti�
+       ;aloitus- ja lopetuspisteet lï¿½ydetty, aletaan etsiï¿½ reittiï¿½
 	
 	Repeat
 		
@@ -6146,7 +6210,7 @@ Function FindPath(n.NPCs, x#, y#, z#)
 					
                 EndIf
 			Next
-		Else ;open listilt� ei l�ytynyt mit��n
+		Else ;open listiltï¿½ ei lï¿½ytynyt mitï¿½ï¿½n
 			If EndPoint\state > 0 Then
                 StartPoint\parent = Null
                 EndPoint\state = 2
@@ -6388,6 +6452,11 @@ Function UpdateSecurityCams()
 			EndIf
 			
 			If close Or sc=CoffinCam Then 
+				If (MilliSecs2() Mod 1350) < 800
+					EntityTexture(sc\CameraObj, CameraTexture)
+				Else 
+					EntityTexture(sc\CameraObj, CameraRec)
+				EndIf
 				If sc\FollowPlayer Then
 					If sc<>CoffinCam
 						If EntityVisible(sc\CameraObj,Camera)
@@ -6576,6 +6645,7 @@ Function UpdateSecurityCams()
 							EntityTexture(sc\ScrOverlay, OldAiPics(0))
 						End If
 						
+						
 						If (MilliSecs2() Mod sc\PlayerState) >= Rand(600) Then
 							EntityTexture(sc\ScrOverlay, MonitorTexture)
 						Else
@@ -6690,9 +6760,9 @@ Function UpdateLever(obj, locked=False)
 					EndIf
 				EndIf 
 				
-				If EntityPitch(obj,True) > 75 Then ;p��ll�
+				If EntityPitch(obj,True) > 75 Then ;pï¿½ï¿½llï¿½
 					If prevpitch =< 75 Then PlaySound2(LeverSFX, Camera, obj, 1.0)
-				ElseIf EntityPitch(obj,True) < -75 ;pois p��lt�
+				ElseIf EntityPitch(obj,True) < -75 ;pois pï¿½ï¿½ltï¿½
 					If prevpitch => -75 Then PlaySound2(LeverSFX, Camera, obj, 1.0)	
 				EndIf						
 			EndIf
@@ -6709,9 +6779,9 @@ Function UpdateLever(obj, locked=False)
 		
 	EndIf
 	
-	If EntityPitch(obj,True) > 0 Then ;p��ll�
+	If EntityPitch(obj,True) > 0 Then ;pï¿½ï¿½llï¿½
 		Return True
-	Else ;pois p��lt�
+	Else ;pois pï¿½ï¿½ltï¿½
 		Return False
 	EndIf	
 	
@@ -7444,6 +7514,7 @@ Function CreateMap()
 	SetRoom("room2poffices2", ROOM2, min_pos+Floor(0.8*Room2Amount[2]),min_pos,max_pos)
 	SetRoom("room2offices2", ROOM2, min_pos+Floor(0.9*Float(Room2Amount[2])),min_pos,max_pos)
 	
+	
 	MapRoom(ROOM2C, Room2CAmount[0]+Room2CAmount[1]) = "room2ccont"	
 	MapRoom(ROOM2C, Room2CAmount[0]+Room2CAmount[1]+1) = "lockroom2"		
 	
@@ -7479,7 +7550,7 @@ Function CreateMap()
 				
 				temp = Min(MapTemp(x + 1, y),1) + Min(MapTemp(x - 1, y),1) + Min(MapTemp(x, y + 1),1) + Min(MapTemp(x, y - 1),1)
 				
-				Select temp ;viereisiss� ruuduissa olevien huoneiden m��r�
+				Select temp ;viereisissï¿½ ruuduissa olevien huoneiden mï¿½ï¿½rï¿½
 					Case 1
 						If MapRoomID(ROOM1) < MaxRooms And MapName(x,y) = "" Then
 							If MapRoom(ROOM1, MapRoomID(ROOM1)) <> "" Then MapName(x, y) = MapRoom(ROOM1, MapRoomID(ROOM1))	
@@ -8730,22 +8801,3 @@ Function PreventRoomOverlap(r.Rooms)
 	DebugLog "Couldn't fix overlap issue for room "+r\RoomTemplate\Name
 	Return False
 End Function
-
-
-
-
-
-
-
-
-
-
-
-;~IDEal Editor Parameters:
-;~F#2#A#35#102#111#118#11F#126#13F#147#14F#2F4#304#315#33D#34B#35B#360#36B#413
-;~F#51E#53F#563#57F#58A#5C6#5D6#5FF#63B#643#658#6A7#6B1#136A#13EC#13F8#143D#1448#1459#145E
-;~F#146D#1484#1505#150E#15D0#15ED#15F4#15FA#1608#162B#1650#1683#17CA#1803#1818#190C#19E1#19E6#19F6#1CA3
-;~F#1CC2#1CC9#1D2A#1DA6#1DD1#1DF2#1E05#1E1C#1E2F#1E36#1E6A#1E75#1E9D#1EFA#1F06#1F11#1F17#1F21#1F27#1F3D
-;~F#1F51#1F6F
-;~B#1230
-;~C#Blitz3D
