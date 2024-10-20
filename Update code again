@@ -1527,7 +1527,9 @@ Global DebugHUD%
 
 Global BlurVolume#, BlurTimer#
 
-Global LightBlink#, LightFlash#
+Global LightBlink#, LightFlash#, LightBlinkTimer#
+
+Global Flicker#, FlickerTimer#
 
 Global BumpEnabled% = GetINIInt("options.ini", "options", "bump mapping enabled")
 Global HUDenabled% = GetINIInt("options.ini", "options", "HUD enabled")
@@ -1628,6 +1630,12 @@ Global FemurBreakerSFX%
 Global EndBreathCHN%
 Global EndBreathSFX%
 
+Global ActiveSFX%, ActiveSFXCHN%
+
+Global ScreamSFX%, ScreamSFXCHN%
+Global CryingSFX%, CryingSFXCHN%
+Global AgitatedSFX%, AgitatedSFXCHN%
+
 Dim DecaySFX%(5)
 
 Global BurstSFX 
@@ -1700,6 +1708,8 @@ Dim MTFSFX%(8)
 
 Dim CoughSFX%(3)
 Global CoughCHN%, VomitCHN%
+
+Global CrouchSFX%, CrouchCHN%
 
 Global MachineSFX% 
 Global ApacheSFX
@@ -1802,7 +1812,7 @@ Global ForestNPC,ForestNPCTex,ForestNPCData#[3]
 Global PauseMenuIMG%
 
 Global SprintIcon%
-Global BlinkIcon%
+Global BlinkIcon%, BlinkIcon2%
 Global CrouchIcon%
 Global HandIcon%
 Global HandIcon2%
@@ -1923,8 +1933,8 @@ Function CreateDoor.Doors(lvl, x#, y#, z#, angle#, room.Rooms, dopen% = False,  
 			EndIf
 		Next
 		If d\obj = 0 Then
-			;d\obj = LoadMesh_Strict("GFX\map\WindowedDoor.b3d")
-			d\obj = LoadMesh_Strict("GFX\map\officedoor.b3d")
+			d\obj = LoadMesh_Strict("GFX\map\WindowedDoor.b3d")
+			;d\obj = LoadMesh_Strict("GFX\map\officedoor.b3d")
 			ScaleEntity d\obj, RoomScale, RoomScale, RoomScale
 		EndIf
 		d\frameobj = CopyEntity(DoorFrameOBJ)
@@ -1955,28 +1965,38 @@ Function CreateDoor.Doors(lvl, x#, y#, z#, angle#, room.Rooms, dopen% = False,  
 	d\Level = lvl
 	d\LevelDest = 66
 	
-	For i% = 0 To 1
-		If code <> "" Then 
-			d\buttons[i]= CopyEntity(ButtonCodeOBJ)
-			EntityFX(d\buttons[i], 1)
-		Else
-			If keycard>0 Then
-				d\buttons[i]= CopyEntity(ButtonKeyOBJ)
-			ElseIf keycard<0
-				d\buttons[i]= CopyEntity(ButtonScannerOBJ)	
+	If big<>3
+		For i = 0 To 3
+			If code <> "" Then 
+				d\buttons[i]= CopyEntity(ButtonCodeOBJ)
+				EntityFX(d\buttons[i], 1)
 			Else
-				d\buttons[i] = CopyEntity(ButtonOBJ)
-			End If
+				If keycard>0 Then
+					d\buttons[i]= CopyEntity(ButtonKeyOBJ)
+				ElseIf keycard<0
+					d\buttons[i]= CopyEntity(ButtonScannerOBJ)	
+				Else
+					d\buttons[i] = CopyEntity(ButtonOBJ)
+				EndIf
+			EndIf
 			
-		EndIf
-		ScaleEntity(d\buttons[i], 0.03, 0.03, 0.03)
-	Next
+			ScaleEntity(d\buttons[i], 0.03, 0.03, 0.03)
+		Next
+	Else
+		d\buttons[0] = CopyEntity(ElevatorButtonOBJ)
+		d\buttons[1] = CopyEntity(d\buttons[0])
+		EntityFX d\buttons[0],1
+		ScaleEntity d\buttons[0], 0.03, 0.03, 0.03
+		ScaleEntity(d\buttons[1], 0.03, 0.03, 0.03)
+	EndIf
 	
 	For i = 0 To 1
-		If d\locked Then
-			If d\buttons[i] <> 0 Then EntityTexture(d\buttons[i], ButtonTextureLocked)
-		Else
-			If d\buttons[i] <> 0 Then EntityTexture(d\buttons[i], ButtonTexture)
+		If d\buttons[i] <> 0 
+			If d\locked Then
+				EntityTexture(d\buttons[i], ButtonTextureLocked)
+			Else
+				EntityTexture(d\buttons[i], ButtonTexture)
+			EndIf
 		EndIf
 	Next
 	
@@ -2061,10 +2081,6 @@ Function CreateButton(x#,y#,z#, pitch#,yaw#,roll#=0)
 	Local obj = CopyEntity(ButtonOBJ)	
 	
 	ScaleEntity(obj, 0.03, 0.03, 0.03)
-	
-	ButtonTexture = LoadTexture_Strict("GFX\map\KeyPad.jpg")
-	ButtonTextureActive = LoadTexture_Strict("GFX\map\KeyPad_Active.png")
-	ButtonTextureLocked = LoadTexture_Strict("GFX\map\KeyPad_Locked.png")
 	
 	PositionEntity obj, x,y,z
 	RotateEntity obj, pitch,yaw,roll
@@ -2278,12 +2294,14 @@ Function UpdateDoors()
 			EndIf
 			
 			For i = 0 To 1
-				If d\locked Then
-					EntityTexture(d\buttons[i], ButtonTextureLocked)
-				ElseIf d\openstate > 0 And d\openstate < 180
-					EntityTexture(d\buttons[i], ButtonTextureActive)
-				Else
-					EntityTexture(d\buttons[i], ButtonTexture)
+				If d\buttons[i] <> 0 
+					If d\locked Then
+						EntityTexture(d\buttons[i], ButtonTextureLocked)
+					ElseIf d\openstate > 0 And d\openstate < 180
+						EntityTexture(d\buttons[i], ButtonTextureActive)
+					Else
+						EntityTexture(d\buttons[i], ButtonTexture)
+					EndIf
 				EndIf
 			Next
 			
@@ -2783,10 +2801,12 @@ Global DoorOBJ%, DoorFrameOBJ%
 Global LeverOBJ%, LeverBaseOBJ%
 
 Global DoorColl%
-Global ButtonOBJ%, ButtonKeyOBJ%, ButtonCodeOBJ%, ButtonScannerOBJ%
+Global ButtonOBJ%, ButtonKeyOBJ%, ButtonCodeOBJ%, ButtonScannerOBJ%, ElevatorButtonOBJ%
 
 Global Monitor%, MonitorTexture%, MonitorRec%
 Global CamBaseOBJ%, CamOBJ%
+
+Global CameraTexture%, CameraRec%
 
 Global LiquidObj%,MTFObj%,GuardObj%,ClassDObj%
 Global ApacheObj%,ApacheRotorObj%
@@ -3098,11 +3118,11 @@ Repeat
 			
 			If BlinkTimer < 0 Then
 				If BlinkTimer > - 5 Then
-					DarkAlpha = Max(darkA, Sin(Abs(BlinkTimer * 18.0)))
+					DarkAlpha = Max(DarkAlpha, Sin(Abs(BlinkTimer * 18.0)))
 				ElseIf BlinkTimer > - 15
 					DarkAlpha = 1.0
 				Else
-					DarkAlpha = Max(darkA, Abs(Sin(BlinkTimer * 18.0)))
+					DarkAlpha = Max(DarkAlpha, Abs(Sin(BlinkTimer * 18.0)))
 				EndIf
 				
 				If BlinkTimer <= - 20 Then
@@ -3123,7 +3143,7 @@ Repeat
 				BlinkTimer = BlinkTimer - FPSfactor * 0.6 * BlinkEffect
 				If EyeIrritation > 0 Then BlinkTimer=BlinkTimer-Min(EyeIrritation / 100.0 + 1.0, 4.0) * FPSfactor
 				
-				DarkAlpha = Max(darkA, 0.0)
+				DarkAlpha = Max(DarkAlpha, 0.0)
 			End If
 			
 			EyeIrritation = Max(0, EyeIrritation - FPSfactor)
@@ -3135,11 +3155,33 @@ Repeat
 			EndIf
 			
 			LightBlink = Max(LightBlink - (FPSfactor / 35.0), 0)
-			If LightBlink > 0 Then DarkAlpha = Min(Max(darkA, LightBlink * Rnd(0.3, 0.8)), 1.0)
+			Flicker = Max(Flicker - (FPSfactor / 35.0), 0)
 			
-			If Using294 Then darkA=1.0
+			LightBlinkTimer = LightBlinkTimer - FPSfactor
+			FlickerTimer = FlickerTimer - FPSfactor
 			
-			If (Not WearingNightVision) Then DarkAlpha = Max((1.0-SecondaryLightOn)*0.9, darkA)
+           ;If LightBlink > 0 Then DarkAlpha = Min(Max(DarkAlpha, LightBlink * Rnd(0.3, 0.8)), 1.0)
+			
+			If LightBlink > 0 Or LightBlinkTimer > 0 Then
+				SecondaryLightOn = CurveValue(0.0, SecondaryLightOn * LightVolume, 10.0)
+				Flicker = Rnd(1.0,2.0)
+			Else
+				SecondaryLightOn = CurveValue(1.0, SecondaryLightOn * LightVolume, 10.0)
+			EndIf
+			
+			If Flicker > 0 Then 
+				DarkAlpha = Min(Max(DarkAlpha, Flicker * Rnd(0.3, 0.8)), 1.0)
+			ElseIf FlickerTimer > 0 Then
+				Flicker = Rnd(1.0,2.0)
+			EndIf
+			
+			If KeyDown(33) Then
+				FlickerTimer = 10
+			EndIf
+			
+			If Using294 Then DarkAlpha=1.0
+			
+			If (Not WearingNightVision) Then DarkAlpha = Max((1.0-SecondaryLightOn)*0.9, DarkAlpha)
 			
 			If KillTimer < 0 Then
 				InvOpen = False
@@ -3152,7 +3194,7 @@ Repeat
 					MenuOpen = True 
 					If SelectedEnding <> "" Then EndingTimer = Min(KillTimer,-0.1)
 				EndIf
-				DarkAlpha = Max(darkA, Min(Abs(KillTimer / 400.0), 1.0))
+				DarkAlpha = Max(DarkAlpha, Min(Abs(KillTimer / 400.0), 1.0))
 			EndIf
 			
 			If FallTimer < 0 Then
@@ -3173,11 +3215,11 @@ Repeat
 			EndIf
 			
 			If SelectedItem <> Null Then
-				If SelectedItem\itemtemplate\tempname = "navigator" Or SelectedItem\itemtemplate\tempname = "nav" Then DarkAlpha = Max(darkA, 0.5)
+				If SelectedItem\itemtemplate\tempname = "navigator" Or SelectedItem\itemtemplate\tempname = "nav" Then DarkAlpha = Max(DarkAlpha, 0.5)
 			End If
 			If SelectedScreen <> Null Then DarkAlpha = Max(DarkAlpha, 0.5)
 			
-			EntityAlpha(Dark, darkA)	
+			EntityAlpha(Dark, DarkAlpha)	
 		EndIf
 		
 		If LightFlash > 0 Then
@@ -3329,7 +3371,11 @@ Repeat
 				If Left(Msg,14)="Blitz3D Error!" Then
 					Color 255,0,0
 				EndIf
-				AAText((GraphicWidth / 2), (GraphicHeight / 2) + 200, Msg, True, False, Min(MsgTimer / 2, 255)/255.0)
+				If Infect > 0
+					AAText((GraphicWidth / 2)+Rand(1,5), (GraphicHeight / 2) + Rand(201,205), Msg, True, False, Min(MsgTimer / 2, 255)/255.0)
+				Else
+					AAText((GraphicWidth / 2)+1, (GraphicHeight / 2) + 201, Msg, True, False, Min(MsgTimer / 2, 255)/255.0)
+				EndIf
 			Else
 				Color 0,0,0
 				AAText((GraphicWidth / 2)+1, (GraphicHeight * 0.94) + 1, Msg, True, False, Min(MsgTimer / 2, 255)/255.0)
@@ -3337,7 +3383,11 @@ Repeat
 				If Left(Msg,14)="Blitz3D Error!" Then
 					Color 255,0,0
 				EndIf
-				AAText((GraphicWidth / 2), (GraphicHeight * 0.94), Msg, True, False, Min(MsgTimer / 2, 255)/255.0)
+				If Infect > 0
+					AAText((GraphicWidth / 2)+Rand(1,5), (GraphicHeight / 2) + Rand(201,205), Msg, True, False, Min(MsgTimer / 2, 255)/255.0)
+				Else
+					AAText((GraphicWidth / 2)+1, (GraphicHeight / 2) + 201, Msg, True, False, Min(MsgTimer / 2, 255)/255.0)
+				EndIf
 			EndIf
 			MsgTimer=MsgTimer-FPSfactor2 
 		End If
@@ -4191,7 +4241,7 @@ Function MovePlayer()
 			End If
 			
 			If PlayerRoom\RoomTemplate\Name = "pocketdimension" Then 
-				If EntityY(Collider)<2000*RoomScale Or EntityY(Collider)>2608*RoomScale Then
+				If EntityY(Collider)<2000*RoomScale Or EntityY(Collider)>2608*RoomScale Or EntityY(Collider)<1500*RoomScale Then
 					Stamina = 0
 					Speed = 0.015
 					Sprint = 1.0					
@@ -4484,7 +4534,7 @@ Function MouseLook()
 		RotateEntity Camera, WrapAngle(user_camera_pitch + Rnd(-CameraShake, CameraShake)), WrapAngle(EntityYaw(Collider) + Rnd(-CameraShake, CameraShake)), roll ; Pitch the user;s camera up And down.
 		
 		If PlayerRoom\RoomTemplate\Name = "pocketdimension" Then
-			If EntityY(Collider)<2000*RoomScale Or EntityY(Collider)>2608*RoomScale Then
+			If EntityY(Collider)<2000*RoomScale Or EntityY(Collider)>2608*RoomScale Or EntityY(Collider)<1500*RoomScale Then
 				RotateEntity Camera, WrapAngle(EntityPitch(Camera)),WrapAngle(EntityYaw(Camera)), roll+WrapAngle(Sin(MilliSecs2()/150.0)*30.0) ; Pitch the user;s camera up And down.
 			EndIf
 		EndIf
@@ -4771,9 +4821,9 @@ Function DrawGUI()
 		If pitchvalue > 90 And pitchvalue <= 180 Then pitchvalue = 90
 		If pitchvalue > 180 And pitchvalue < 270 Then pitchvalue = 270
 		
-		AASetFont Font6
-		Color(255,255,255)
-		AAText(GraphicWidth / 2 + Sin(yawvalue) * (GraphicWidth / 3), GraphicHeight / 2 - Sin(pitchvalue) * (GraphicHeight / 3) - 58, ClosestItem\name, True)
+		;AASetFont Font6
+		;Color(255,255,255)
+		;AAText(GraphicWidth / 2 + Sin(yawvalue) * (GraphicWidth / 3), GraphicHeight / 2 - Sin(pitchvalue) * (GraphicHeight / 3) - 58, ClosestItem\name, True)
 		
 		DrawImage(HandIcon2, GraphicWidth / 2 + Sin(yawvalue) * (GraphicWidth / 3) - 32, GraphicHeight / 2 - Sin(pitchvalue) * (GraphicHeight / 3) - 32)
 	EndIf
@@ -6003,7 +6053,6 @@ Function DrawGUI()
 								SelectedItem\itemtemplate\img = LoadImage_Strict("GFX\items\bn.it")
 								SetBuffer ImageBuffer(SelectedItem\itemtemplate\img)
 								Color 0,0,0
-								AASetFont Font1
 								AAText 277, 469, AccessCode, True, True
 								Color 255,255,255
 								SetBuffer BackBuffer()
@@ -6037,7 +6086,11 @@ Function DrawGUI()
 						MaskImage(SelectedItem\itemtemplate\img, 255, 0, 255)
 					EndIf
 					
-					DrawImage(SelectedItem\itemtemplate\img, GraphicWidth / 2 - ImageWidth(SelectedItem\itemtemplate\img) / 2, GraphicHeight / 2 - ImageHeight(SelectedItem\itemtemplate\img) / 2)
+					If BlinkTimer < 0 Then
+						HideEntity(SelectedItem\itemtemplate\img)
+					Else
+					    DrawImage(SelectedItem\itemtemplate\img, GraphicWidth / 2 - ImageWidth(SelectedItem\itemtemplate\img) / 2, GraphicHeight / 2 - ImageHeight(SelectedItem\itemtemplate\img) / 2)
+					EndIf
 					;[End Block]
 				Case "scp1025"
 					;[Block]
@@ -7913,6 +7966,7 @@ Function LoadEntities()
 	
 	SprintIcon% = LoadImage_Strict("GFX\sprinticon.png")
 	BlinkIcon% = LoadImage_Strict("GFX\blinkicon.png")
+	BlinkIcon2% = LoadImage_Strict("GFX\BlinkIcon2.png")
 	CrouchIcon% = LoadImage_Strict("GFX\sneakicon.png")
 	HandIcon% = LoadImage_Strict("GFX\handsymbol.png")
 	HandIcon2% = LoadImage_Strict("GFX\handsymbol2.png")
@@ -8134,7 +8188,8 @@ Function LoadEntities()
 	
 	DrawLoading(10)
 	
-	DoorOBJ = LoadMesh_Strict("GFX\map\door01.x")
+	;DoorOBJ = LoadMesh_Strict("GFX\map\door01.x")
+	DoorOBJ = LoadAnimMesh_Strict("GFX\map\Door01.b3d")
 	HideEntity DoorOBJ
 	DoorFrameOBJ = LoadMesh_Strict("GFX\map\doorframe.x")
 	HideEntity DoorFrameOBJ
@@ -8147,14 +8202,15 @@ Function LoadEntities()
 	DoorColl = LoadMesh_Strict("GFX\map\doorcoll.x")
 	HideEntity DoorColl
 	
-	ButtonOBJ = LoadMesh_Strict("GFX\map\Button.x")
+	ButtonOBJ = LoadMesh_Strict("GFX\map\Button.b3d")
 	HideEntity ButtonOBJ
-	ButtonKeyOBJ = LoadMesh_Strict("GFX\map\ButtonKeycard.x")
+	ButtonKeyOBJ = LoadMesh_Strict("GFX\map\ButtonKeycard.b3d")
 	HideEntity ButtonKeyOBJ
-	ButtonCodeOBJ = LoadMesh_Strict("GFX\map\ButtonCode.x")
+	ButtonCodeOBJ = LoadMesh_Strict("GFX\map\ButtonCode.b3d")
 	HideEntity ButtonCodeOBJ	
-	ButtonScannerOBJ = LoadMesh_Strict("GFX\map\ButtonScanner.x")
+	ButtonScannerOBJ = LoadMesh_Strict("GFX\map\ButtonScanner.b3d")
 	HideEntity ButtonScannerOBJ	
+	ElevatorButtonOBJ = LoadMesh_Strict("GFX\map\ButtonElevator.b3d")
 	
 	BigDoorOBJ(0) = LoadMesh_Strict("GFX\map\ContDoorLeft.x")
 	HideEntity BigDoorOBJ(0)
@@ -8190,6 +8246,10 @@ Function LoadEntities()
 		GorePics(i) = LoadTexture_Strict("GFX\895pics\pic" + (i + 1) + ".jpg")
 	Next
 	
+	ButtonTexture = LoadTexture_Strict("GFX\map\KeyPad.jpg")
+	ButtonTextureActive = LoadTexture_Strict("GFX\map\KeyPad_Active.jpg")
+	ButtonTextureLocked = LoadTexture_Strict("GFX\map\KeyPad_Locked.jpg")
+	
 	OldAiPics(0) = LoadTexture_Strict("GFX\AIface.jpg")
 	OldAiPics(1) = LoadTexture_Strict("GFX\AIface2.jpg")
 	
@@ -8202,12 +8262,15 @@ Function LoadEntities()
 	Monitor = LoadMesh_Strict("GFX\map\monitor.b3d")
 	HideEntity Monitor
 	MonitorTexture = LoadTexture_Strict("GFX\monitortexture.jpg")
-	;MonitorRec = LoadTexture_Strict("GFX\monitortexture2_hd.png")
+	MonitorRec = LoadTexture_Strict("GFX\monitortexture2.jpg")
 	
 	CamBaseOBJ = LoadMesh_Strict("GFX\map\cambase.x")
 	HideEntity(CamBaseOBJ)
 	CamOBJ = LoadMesh_Strict("GFX\map\CamHead.b3d")
 	HideEntity(CamOBJ)
+	
+	CameraTexture = LoadTexture_Strict("GFX\map\CameraTexture.jpg")
+	CameraRec = LoadTexture_Strict("GFX\map\CameraTexture1.jpg")
 	
 	Monitor2 = LoadMesh_Strict("GFX\map\monitor_checkpoint.b3d")
 	HideEntity Monitor2
@@ -8292,6 +8355,7 @@ Function LoadEntities()
 	ParticleTextures(6) = LoadTexture_Strict("GFX\smoke2.png", 1 + 2)
 	ParticleTextures(7) = LoadTexture_Strict("GFX\spark.jpg", 1 + 2)
 	ParticleTextures(8) = LoadTexture_Strict("GFX\particle.png", 1 + 2)
+	ParticleTextures(9) = LoadTexture_Strict("GFX\glitch.png", 1 + 2)
 	
 	SetChunkDataValues()
 	
@@ -8424,6 +8488,55 @@ Function LoadEntities()
 	SetTemplateSizeVel(t0, .01, 1.01)
 	SetTemplateGravity(ParticleEffect[2], 0.005)
 	SetTemplateSubTemplate(ParticleEffect[2], t0)
+	
+	;Door sparks
+	ParticleEffect[3] = CreateTemplate()
+	SetTemplateEmitterBlend(ParticleEffect[3], 3)
+	SetTemplateInterval(ParticleEffect[3], 1)
+	SetTemplateParticlesPerInterval(ParticleEffect[3], 30)
+	SetTemplateEmitterLifeTime(ParticleEffect[3], 0)
+	SetTemplateParticleLifeTime(ParticleEffect[3], 60, 70)
+	SetTemplateTexture(ParticleEffect[3], "GFX\Spark.png", 2, 3)
+	SetTemplateOffset(ParticleEffect[3], -0.03, 0.03, 0.0, 0.05, -0.03, 0.03)
+	SetTemplateVelocity(ParticleEffect[3], -0.0375, 0.0375, -0.0375, 0.0375, -0.0375, 0.0375)
+	SetTemplateAlignToFall(ParticleEffect[3], True, 45)
+	SetTemplateGravity(ParticleEffect[3], 0.001)
+	SetTemplateAlphaVel(ParticleEffect[3], True)
+	;SetTemplateSize(ParticleEffect[0], 0.0625, 0.125, 0.7, 1)
+	SetTemplateSize(ParticleEffect[3], 0.007, 0.007, 1.0, 1.5)
+	SetTemplateColors(ParticleEffect[3], $0000FF, $6565FF)
+	SetTemplateFloor(ParticleEffect[3], 0.0, 0.5)
+	
+	;Smoke effect (For helicopter)
+	ParticleEffect[4] = CreateTemplate()
+	SetTemplateEmitterBlend(ParticleEffect[4], 1)
+	SetTemplateEmitterLifeTime(ParticleEffect[4], -1)
+	SetTemplateParticleLifeTime(ParticleEffect[4], 230, 250)
+	SetTemplateTexture(ParticleEffect[4], "GFX\smoke.png", 2, 1)
+	;SetTemplateOffset(ParticleEffect[1], -.3, .3, -.3, .3, -.3, .3)
+	SetTemplateOffset(ParticleEffect[4], -0.2, 0.2, -0.1, 0.1, -0.2, 0.2)
+	;SetTemplateVelocity(ParticleEffect[1], -.04, .04, .1, .2, -.04, .04)
+	SetTemplateVelocity(ParticleEffect[4], 0.0, 0.0, 0.02, 0.025, 0.03, 0.0)
+	SetTemplateAlphaVel(ParticleEffect[4], True)
+	;SetTemplateSize(ParticleEffect[1], 3, 3, .5, 1.5)
+	SetTemplateSize(ParticleEffect[1], 0.02, 0.02, 1.0, 1.2)
+	SetTemplateSizeVel(ParticleEffect[4], 0.01, 1.01)
+	
+	;Blue square particles
+	ParticleEffect[5] = CreateTemplate()
+	SetTemplateEmitterBlend(ParticleEffect[5], 1)
+	SetTemplateInterval(ParticleEffect[5], 1)
+	SetTemplateEmitterLifeTime(ParticleEffect[5], 3)
+	SetTemplateParticleLifeTime(ParticleEffect[5], 30, 45)
+	SetTemplateTexture(ParticleEffect[5], "GFX\glitch.png", 2, 1)
+	;SetTemplateOffset(ParticleEffect[1], -.3, .3, -.3, .3, -.3, .3)
+	SetTemplateOffset(ParticleEffect[5], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+	;SetTemplateVelocity(ParticleEffect[1], -.04, .04, .1, .2, -.04, .04)
+	SetTemplateVelocity(ParticleEffect[5], 0.0, 0.0, 0.02, 0.025, 0.0, 0.0)
+	SetTemplateAlphaVel(ParticleEffect[5], True)
+	;SetTemplateSize(ParticleEffect[1], 3, 3, .5, 1.5)
+	SetTemplateSize(ParticleEffect[5], 0.4, 0.4, 0.5, 1.5)
+	SetTemplateSizeVel(ParticleEffect[5], .01, 1.01)
 	
 	Room2slCam = CreateCamera()
 	CameraViewport(Room2slCam, 0, 0, 128, 128)
@@ -9935,7 +10048,7 @@ Select item\itemtemplate\name
 				For n.npcs = Each NPCs
 					If n\npctype = NPCtype5131 Then RemoveNPC(n)
 				Next
-				d.Decals = CreateDecal(0, x, 8*RoomScale+0.010, z, 90, Rand(360), 0)
+				d.Decals = CreateDecal(DECAL_GLITCH_1, x, 8*RoomScale+0.010, z, 90, Rand(360), 0)
 				d\Size = 0.2 : EntityAlpha(d\obj, 0.8) : ScaleSprite(d\obj, d\Size, d\Size)
 			Case "1:1", "fine", "very fine"
 				it2 = CreateItem("SCP-513", "scp513", x, y, z)
@@ -12102,6 +12215,4 @@ Function RotateEntity90DegreeAngles(entity%)
 	EndIf
 	
 End Function
-
-
 
